@@ -1,81 +1,85 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase-server"
+import { createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 
-export async function createPost(formData: FormData) {
-  const supabase = createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "Not authenticated" }
+export async function createPost(data: {
+  content: string
+  youtube_url?: string | null
+  author_id: string
+}) {
+  try {
+    const supabase = await createClient()
 
-  const type = formData.get("type") as string
-  const content = formData.get("content") as string
-  const videoUrl = formData.get("videoUrl") as string
+    const { error } = await supabase.from("posts").insert([
+      {
+        content: data.content,
+        youtube_url: data.youtube_url,
+        author_id: data.author_id,
+      },
+    ])
 
-  let processedVideoUrl = null
-  if (type === "video" && videoUrl) {
-    const videoId = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)?.[1]
-    if (videoId) processedVideoUrl = `https://www.youtube.com/embed/${videoId}`
+    if (error) {
+      console.error("Error creating post:", error)
+      throw new Error("Failed to create post")
+    }
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Error in createPost:", error)
+    throw error
   }
-
-  const { error } = await supabase.from("posts").insert({
-    user_id: user.id,
-    type,
-    content,
-    video_url: processedVideoUrl,
-  })
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  revalidatePath("/")
-  return { success: true }
 }
 
-export async function toggleLike(postId: string) {
-  const supabase = createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return
+export async function likePost(postId: string) {
+  try {
+    const supabase = await createClient()
+    const user = await supabase.auth.getUser()
 
-  const { data: existingLike } = await supabase
-    .from("likes")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("post_id", postId)
-    .single()
+    if (!user.data.user) {
+      throw new Error("Not authenticated")
+    }
 
-  if (existingLike) {
-    await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId)
-  } else {
-    await supabase.from("likes").insert({ user_id: user.id, post_id: postId })
+    const { error } = await supabase.from("post_likes").insert([
+      {
+        post_id: postId,
+        user_id: user.data.user.id,
+      },
+    ])
+
+    if (error && error.code !== "23505") {
+      // Ignore duplicate key error
+      throw error
+    }
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Error liking post:", error)
+    throw error
   }
-
-  revalidatePath("/")
 }
 
-export async function toggleBookmark(postId: string) {
-  const supabase = createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return
+export async function unlikePost(postId: string) {
+  try {
+    const supabase = await createClient()
+    const user = await supabase.auth.getUser()
 
-  // Simple bookmark toggle - you can implement this table later
-  revalidatePath("/")
-}
+    if (!user.data.user) {
+      throw new Error("Not authenticated")
+    }
 
-export async function deletePost(postId: string) {
-  const supabase = createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return
+    const { error } = await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", user.data.user.id)
 
-  await supabase.from("posts").delete().eq("id", postId).eq("user_id", user.id)
-  revalidatePath("/")
+    if (error) {
+      throw error
+    }
+
+    revalidatePath("/")
+    return { success: true }
+  } catch (error) {
+    console.error("Error unliking post:", error)
+    throw error
+  }
 }

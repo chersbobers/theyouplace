@@ -1,77 +1,93 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { createPost } from "@/app/actions/posts"
-import { Video, Type, Plus } from "lucide-react"
+import type React from "react"
 
-export function CreatePost() {
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { createPost } from "@/app/actions/posts"
+import { Youtube, Type } from "lucide-react"
+
+interface CreatePostProps {
+  user: any
+}
+
+export function CreatePost({ user }: CreatePostProps) {
   const [content, setContent] = useState("")
-  const [videoUrl, setVideoUrl] = useState("")
-  const [isVideo, setIsVideo] = useState(false)
+  const [youtubeUrl, setYoutubeUrl] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = async () => {
-    if (!content.trim()) return
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!content.trim() && !youtubeUrl.trim()) {
+      alert("Please add some content or a YouTube URL!")
+      return
+    }
 
     setIsSubmitting(true)
-    const formData = new FormData()
-    formData.append("type", isVideo ? "video" : "text")
-    formData.append("content", content)
-    if (isVideo) formData.append("videoUrl", videoUrl)
+    try {
+      await createPost({
+        content: content.trim(),
+        youtube_url: youtubeUrl.trim() || null,
+        author_id: user.id,
+      })
 
-    await createPost(formData)
-    setContent("")
-    setVideoUrl("")
-    setIsSubmitting(false)
+      setContent("")
+      setYoutubeUrl("")
+
+      // Refresh the page to show new post
+      window.location.reload()
+    } catch (error) {
+      console.error("Error creating post:", error)
+      alert("Failed to create post. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <Card>
-      <CardContent className="p-4 space-y-4">
-        <div className="flex gap-2">
-          <Button variant={!isVideo ? "default" : "outline"} size="sm" onClick={() => setIsVideo(false)}>
-            <Type className="w-4 h-4 mr-2" />
-            Text Post
-          </Button>
-          <Button variant={isVideo ? "default" : "outline"} size="sm" onClick={() => setIsVideo(true)}>
-            <Video className="w-4 h-4 mr-2" />
-            Video Post
-          </Button>
-        </div>
-
-        {isVideo && (
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <Type className="h-5 w-5" />
+          <span>Share Something Awesome</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Input
-              placeholder="YouTube URL (e.g., https://youtube.com/watch?v=...)"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
+            <Label htmlFor="content">What's on your mind?</Label>
+            <Textarea
+              id="content"
+              placeholder="Share your thoughts, ask a question, or start a discussion..."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="min-h-[100px] resize-none"
             />
-            <p className="text-xs text-muted-foreground mt-1">Paste any YouTube video URL</p>
           </div>
-        )}
 
-        <Textarea
-          placeholder={isVideo ? "What's this video about?" : "What's on your mind?"}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={3}
-        />
-
-        <div className="flex justify-between items-center">
-          <div className="flex gap-2">
-            <Badge variant="secondary">+50 XP for first post</Badge>
-            {isVideo && <Badge variant="secondary">+25 XP for video</Badge>}
+          <div>
+            <Label htmlFor="youtube-url" className="flex items-center space-x-2">
+              <Youtube className="h-4 w-4 text-red-600" />
+              <span>YouTube Video (optional)</span>
+            </Label>
+            <Input
+              id="youtube-url"
+              type="url"
+              placeholder="https://www.youtube.com/watch?v=..."
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+            />
           </div>
-          <Button onClick={handleSubmit} disabled={!content.trim() || isSubmitting}>
-            <Plus className="w-4 h-4 mr-2" />
-            {isSubmitting ? "Posting..." : "Post"}
+
+          <Button type="submit" disabled={isSubmitting || (!content.trim() && !youtubeUrl.trim())} className="w-full">
+            {isSubmitting ? "Posting..." : "Share Post"}
           </Button>
-        </div>
+        </form>
       </CardContent>
     </Card>
   )
