@@ -5,89 +5,98 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createPost } from "@/app/actions/posts"
-import { toast } from "sonner"
-import { Loader2, Video, ImageIcon, Send } from "lucide-react"
+import { Loader2, Send, Video, Type } from "lucide-react"
+import type { Post } from "@/lib/types"
 
-export function CreatePost() {
-  const [isLoading, setIsLoading] = useState(false)
+interface CreatePostProps {
+  onPostCreated: (post: Post) => void
+}
+
+export function CreatePost({ onPostCreated }: CreatePostProps) {
+  const [loading, setLoading] = useState(false)
   const [content, setContent] = useState("")
-  const [youtubeUrl, setYoutubeUrl] = useState("")
+  const [videoUrl, setVideoUrl] = useState("")
+  const [error, setError] = useState("")
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
     if (!content.trim()) {
-      toast.error("Please enter some content")
+      setError("Please write something!")
       return
     }
 
-    setIsLoading(true)
+    setLoading(true)
+    setError("")
+
     try {
-      await createPost(content, youtubeUrl || undefined)
-      setContent("")
-      setYoutubeUrl("")
-      toast.success("Post created successfully!")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create post")
+      const formData = new FormData()
+      formData.append("content", content)
+      if (videoUrl) {
+        formData.append("video_url", videoUrl)
+      }
+
+      const result = await createPost(formData)
+
+      if (result.success && result.post) {
+        onPostCreated(result.post)
+        setContent("")
+        setVideoUrl("")
+      } else {
+        setError(result.error || "Failed to create post")
+      }
+    } catch (err) {
+      setError("An unexpected error occurred")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Send className="w-5 h-5" />
-          Share Something Amazing
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="content">What's on your mind?</Label>
-            <Textarea
-              id="content"
-              placeholder="Share your thoughts, experiences, or anything interesting..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="min-h-[100px] resize-none"
-              maxLength={500}
-            />
-            <div className="text-xs text-gray-500 text-right">{content.length}/500</div>
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex items-center space-x-2 mb-4">
+        <Type className="h-5 w-5 text-pink-500" />
+        <h3 className="text-lg font-semibold text-pink-300 retro-font">Share Your Thoughts</h3>
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="youtube-url" className="flex items-center gap-2">
-              <Video className="w-4 h-4" />
-              YouTube Video (Optional)
-            </Label>
-            <Input
-              id="youtube-url"
-              type="url"
-              placeholder="https://www.youtube.com/watch?v=..."
-              value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)}
-            />
-          </div>
+      <div className="space-y-2">
+        <Textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="What's happening in your world? ✨"
+          className="min-h-[100px] bg-black/50 border-pink-500/30 text-white placeholder:text-pink-400 resize-none"
+          maxLength={500}
+        />
+        <div className="text-right text-sm text-pink-400">{content.length}/500</div>
+      </div>
 
-          <div className="flex justify-between items-center">
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" disabled>
-                <ImageIcon className="w-4 h-4 mr-2" />
-                Image
-              </Button>
-            </div>
-            <Button type="submit" disabled={isLoading || !content.trim()}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Post
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+      <div className="space-y-2">
+        <Label htmlFor="video-url" className="text-pink-300 flex items-center">
+          <Video className="h-4 w-4 mr-2" />
+          YouTube Video (optional)
+        </Label>
+        <Input
+          id="video-url"
+          value={videoUrl}
+          onChange={(e) => setVideoUrl(e.target.value)}
+          placeholder="https://www.youtube.com/watch?v=..."
+          className="bg-black/50 border-pink-500/30 text-white placeholder:text-pink-400"
+        />
+      </div>
+
+      {error && <div className="text-red-400 text-sm bg-red-500/10 p-2 rounded border border-red-500/30">{error}</div>}
+
+      <Button
+        type="submit"
+        disabled={loading || !content.trim()}
+        className="w-full bg-pink-500 hover:bg-pink-600 text-white retro-border"
+      >
+        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+        {loading ? "Posting..." : "Share Post"}
+      </Button>
+    </form>
   )
 }

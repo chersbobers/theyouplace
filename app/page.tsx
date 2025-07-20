@@ -1,123 +1,108 @@
-import { createClient } from "@/lib/supabase-server"
-import { getUser } from "@/lib/supabase-server"
+"use client"
+
+import { useState, useEffect } from "react"
 import { CreatePost } from "@/components/create-post"
 import { PostCard } from "@/components/post-card"
 import { AuthForm } from "@/components/auth-form"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, MessageCircle, Video, Star } from "lucide-react"
-import type { Post } from "@/lib/types"
+import { supabase } from "@/lib/supabase"
+import type { Post, User } from "@/lib/types"
+import { Sparkles, Heart, Users } from "lucide-react"
 
-async function getPosts(): Promise<Post[]> {
-  try {
-    const supabase = await createClient()
+export default function HomePage() {
+  const [user, setUser] = useState<User | null>(null)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [loading, setLoading] = useState(true)
 
-    const { data: posts } = await supabase
-      .from("posts")
-      .select(`
-        *,
-        profiles (
-          id,
-          username,
-          display_name,
-          avatar_url,
-          level,
-          xp
-        )
-      `)
-      .order("created_at", { ascending: false })
-      .limit(20)
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser()
 
-    return posts || []
-  } catch (error) {
-    console.error("Error fetching posts:", error)
-    return []
-  }
-}
+        if (authUser) {
+          const { data: profile } = await supabase.from("users").select("*").eq("id", authUser.id).single()
 
-async function getStats() {
-  try {
-    const supabase = await createClient()
-
-    const [{ count: usersCount }, { count: postsCount }, { count: videosCount }] = await Promise.all([
-      supabase.from("profiles").select("*", { count: "exact", head: true }),
-      supabase.from("posts").select("*", { count: "exact", head: true }),
-      supabase.from("posts").select("*", { count: "exact", head: true }).not("youtube_url", "is", null),
-    ])
-
-    return {
-      users: usersCount || 0,
-      posts: postsCount || 0,
-      videos: videosCount || 0,
+          setUser(profile)
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error)
+      }
     }
-  } catch (error) {
-    console.error("Error fetching stats:", error)
-    return {
-      users: 0,
-      posts: 0,
-      videos: 0,
-    }
-  }
-}
 
-export default async function HomePage() {
-  const user = await getUser()
-  const posts = await getPosts()
-  const stats = await getStats()
+    const getPosts = async () => {
+      try {
+        const { data: postsData } = await supabase
+          .from("posts")
+          .select(`
+            *,
+            user:users(*)
+          `)
+          .order("created_at", { ascending: false })
+          .limit(20)
+
+        setPosts(postsData || [])
+      } catch (error) {
+        console.error("Error fetching posts:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    getUser()
+    getPosts()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        const { data: profile } = await supabase.from("users").select("*").eq("id", session.user.id).single()
+
+        setUser(profile)
+      } else if (event === "SIGNED_OUT") {
+        setUser(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handlePostCreated = (newPost: Post) => {
+    setPosts((prev) => [newPost, ...prev])
+  }
 
   if (!user) {
     return (
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Hero Section */}
-        <div className="text-center space-y-6 py-12">
-          <div className="space-y-4">
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Welcome to The You Place
-            </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Where old Twitter, Instagram, and YouTube had a baby. Share your thoughts, videos, and connect with an
-              amazing community.
-            </p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <div className="flex justify-center mb-4">
+              <Sparkles className="h-16 w-16 text-pink-500 neon-text" />
+            </div>
+            <h1 className="myspace-title text-4xl font-bold neon-text text-pink-500 mb-2">THE YOU PLACE</h1>
+            <p className="text-pink-300 text-lg retro-font">✨ Express Yourself ✨ Share Your World ✨</p>
+            <div className="mt-6 p-4 retro-border bg-black/50 rounded-lg">
+              <p className="text-pink-200 mb-4">
+                Welcome to your digital space! Create your profile, share posts, connect with friends, and make it
+                uniquely yours.
+              </p>
+              <div className="flex justify-center space-x-6 text-sm text-pink-300">
+                <div className="flex items-center">
+                  <Heart className="h-4 w-4 mr-1" />
+                  Share Posts
+                </div>
+                <div className="flex items-center">
+                  <Users className="h-4 w-4 mr-1" />
+                  Make Friends
+                </div>
+                <div className="flex items-center">
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Customize
+                </div>
+              </div>
+            </div>
           </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-2xl mx-auto">
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Users className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                <div className="text-2xl font-bold">{stats.users.toLocaleString()}</div>
-                <div className="text-sm text-gray-500">Community Members</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6 text-center">
-                <MessageCircle className="w-8 h-8 mx-auto mb-2 text-purple-500" />
-                <div className="text-2xl font-bold">{stats.posts.toLocaleString()}</div>
-                <div className="text-sm text-gray-500">Posts Shared</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Video className="w-8 h-8 mx-auto mb-2 text-pink-500" />
-                <div className="text-2xl font-bold">{stats.videos.toLocaleString()}</div>
-                <div className="text-sm text-gray-500">Videos Posted</div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Auth Form */}
-        <div className="max-w-md mx-auto">
           <AuthForm />
-        </div>
-
-        {/* Recent Posts Preview */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-center">See What's Happening</h2>
-          <div className="space-y-4">
-            {posts.slice(0, 3).map((post) => (
-              <PostCard key={post.id} post={post} currentUserId={null} />
-            ))}
-          </div>
         </div>
       </div>
     )
@@ -125,34 +110,43 @@ export default async function HomePage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Welcome Message */}
-      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Star className="w-5 h-5 text-yellow-500" />
-            Welcome back, {user.profile?.display_name}!
-          </CardTitle>
-          <CardDescription>
-            Level {user.profile?.level || 1} • {user.profile?.xp || 0} XP
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="text-center mb-8">
+        <h1 className="myspace-title text-3xl font-bold neon-text text-pink-500 mb-2">
+          Welcome back, {user.display_name || user.username}! ✨
+        </h1>
+        <p className="text-pink-300 retro-font">What's on your mind today?</p>
+      </div>
 
-      {/* Create Post */}
-      <CreatePost />
+      <div className="retro-border bg-black/50 p-6 rounded-lg sparkle">
+        <CreatePost onPostCreated={handlePostCreated} />
+      </div>
 
-      {/* Posts Feed */}
       <div className="space-y-6">
-        {posts.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
-              <p className="text-gray-500">Be the first to share something with the community!</p>
-            </CardContent>
-          </Card>
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="retro-border bg-black/50 p-6 rounded-lg">
+                <div className="animate-pulse">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-10 h-10 bg-pink-500/20 rounded-full" />
+                    <div className="h-4 bg-pink-500/20 rounded w-24" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-pink-500/20 rounded w-full" />
+                    <div className="h-4 bg-pink-500/20 rounded w-3/4" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="text-center py-12 retro-border bg-black/50 rounded-lg">
+            <Sparkles className="h-12 w-12 text-pink-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-pink-300 mb-2">No posts yet!</h3>
+            <p className="text-pink-400">Be the first to share something amazing!</p>
+          </div>
         ) : (
-          posts.map((post) => <PostCard key={post.id} post={post} currentUserId={user.id} />)
+          posts.map((post) => <PostCard key={post.id} post={post} currentUser={user} />)
         )}
       </div>
     </div>

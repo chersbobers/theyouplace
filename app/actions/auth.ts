@@ -1,114 +1,97 @@
 "use server"
 
-import { createClient } from "@/lib/supabase-server"
+import { supabase } from "@/lib/supabase"
 import { redirect } from "next/navigation"
 
-export async function signInWithEmail(email: string, password: string) {
-  const supabase = await createClient()
+export async function signUp(formData: FormData) {
+  const email = formData.get("email") as string
+  const password = formData.get("password") as string
+  const username = formData.get("username") as string
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-
-  if (error) {
-    throw new Error(error.message)
+  if (!email || !password || !username) {
+    return { error: "All fields are required" }
   }
 
-  redirect("/")
-}
+  try {
+    // Check if username is already taken
+    const { data: existingUser } = await supabase.from("users").select("username").eq("username", username).single()
 
-export async function signUpWithEmail(email: string, password: string, username: string, displayName: string) {
-  const supabase = await createClient()
+    if (existingUser) {
+      return { error: "Username is already taken" }
+    }
 
-  // Check if username is already taken
-  const { data: existingUser } = await supabase.from("profiles").select("username").eq("username", username).single()
-
-  if (existingUser) {
-    throw new Error("Username is already taken")
-  }
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        username,
-        display_name: displayName,
+    // Sign up the user
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          username,
+          display_name: username,
+        },
       },
-    },
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  if (data.user) {
-    // Create profile immediately
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: data.user.id,
-      username,
-      display_name: displayName,
-      bio: "",
-      avatar_url: data.user.user_metadata?.avatar_url || "",
-      xp: 0,
-      level: 1,
-      posts_count: 0,
-      followers_count: 0,
-      following_count: 0,
-      is_profile_public: true,
-      theme_primary_color: "#3b82f6",
-      theme_secondary_color: "#1d4ed8",
-      theme_accent_color: "#60a5fa",
-      theme_background_color: "#ffffff",
-      theme_text_color: "#111827",
-      profile_widgets: [
-        { type: "bio", enabled: true, order: 1 },
-        { type: "stats", enabled: true, order: 2 },
-        { type: "recent_posts", enabled: true, order: 3 },
-        { type: "social_links", enabled: false, order: 4 },
-      ],
-      social_links: {},
     })
 
-    if (profileError) {
-      console.error("Profile creation error:", profileError)
-      throw new Error("Failed to create profile")
+    if (error) {
+      return { error: error.message }
     }
 
-    // Give special badge to chersbobers
-    if (username === "chersbobers") {
-      await supabase.from("user_badges").insert({
-        user_id: data.user.id,
-        badge_id: "creator-badge",
-      })
-    }
+    return { success: true }
+  } catch (error) {
+    return { error: "An unexpected error occurred" }
+  }
+}
+
+export async function signIn(formData: FormData) {
+  const email = formData.get("email") as string
+  const password = formData.get("password") as string
+
+  if (!email || !password) {
+    return { error: "Email and password are required" }
   }
 
-  redirect("/")
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      return { error: error.message }
+    }
+
+    redirect("/")
+  } catch (error) {
+    return { error: "An unexpected error occurred" }
+  }
 }
 
 export async function signInWithGoogle() {
-  const supabase = await createClient()
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+      },
+    })
 
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-    },
-  })
+    if (error) {
+      return { error: error.message }
+    }
 
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  if (data.url) {
-    redirect(data.url)
+    if (data.url) {
+      redirect(data.url)
+    }
+  } catch (error) {
+    return { error: "Failed to sign in with Google" }
   }
 }
 
 export async function signOut() {
-  const supabase = await createClient()
-  await supabase.auth.signOut()
-  redirect("/")
+  try {
+    await supabase.auth.signOut()
+    redirect("/auth")
+  } catch (error) {
+    return { error: "Failed to sign out" }
+  }
 }

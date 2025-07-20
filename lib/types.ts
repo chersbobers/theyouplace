@@ -1,40 +1,38 @@
-export interface Profile {
+export interface User {
   id: string
+  email: string
   username: string
-  display_name: string
-  bio: string
-  avatar_url: string
-  banner_image?: string
-  xp: number
-  level: number
-  posts_count: number
-  followers_count: number
-  following_count: number
-  is_profile_public: boolean
-  theme_primary_color: string
-  theme_secondary_color: string
-  theme_accent_color: string
-  theme_background_color: string
-  theme_text_color: string
-  profile_widgets: any[]
-  social_links: any
-  profile_music?: string
+  display_name?: string
+  bio?: string
+  avatar_url?: string
+  banner_url?: string
+  theme?: string
+  custom_css?: string
   created_at: string
-  updated_at?: string
+  updated_at: string
 }
 
 export interface Post {
   id: string
   user_id: string
   content: string
-  youtube_url?: string
+  video_url?: string
   image_url?: string
   likes_count: number
   comments_count: number
-  shares_count: number
   created_at: string
-  updated_at?: string
-  profiles: Profile
+  updated_at: string
+  user?: User
+  liked_by_user?: boolean
+}
+
+export interface Comment {
+  id: string
+  post_id: string
+  user_id: string
+  content: string
+  created_at: string
+  user?: User
 }
 
 export interface Message {
@@ -42,10 +40,10 @@ export interface Message {
   sender_id: string
   receiver_id: string
   content: string
-  is_read: boolean
+  read: boolean
   created_at: string
-  sender: Profile
-  receiver: Profile
+  sender?: User
+  receiver?: User
 }
 
 export interface Badge {
@@ -55,7 +53,6 @@ export interface Badge {
   icon: string
   color: string
   rarity: "common" | "rare" | "epic" | "legendary"
-  requirements: any
   created_at: string
 }
 
@@ -64,5 +61,5 @@ export interface UserBadge {
   user_id: string
   badge_id: string
   earned_at: string
-  badge: Badge
+  badge?: Badge
 }
