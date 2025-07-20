@@ -2,10 +2,9 @@ export interface Profile {
   id: string
   username: string
   display_name: string
-  bio?: string
-  avatar_url?: string
+  bio: string
+  avatar_url: string
   banner_image?: string
-  background_image?: string
   xp: number
   level: number
   posts_count: number
@@ -17,61 +16,36 @@ export interface Profile {
   theme_accent_color: string
   theme_background_color: string
   theme_text_color: string
-  custom_css?: string
+  profile_widgets: any[]
+  social_links: any
   profile_music?: string
-  profile_widgets: ProfileWidget[]
-  social_links: Record<string, string>
   created_at: string
-  updated_at: string
-}
-
-export interface ProfileWidget {
-  type: string
-  enabled: boolean
-  order: number
-}
-
-export interface ProfileTheme {
-  id: string
-  name: string
-  primary_color: string
-  secondary_color: string
-  accent_color: string
-  background_color: string
-  text_color: string
-  downloads_count: number
+  updated_at?: string
 }
 
 export interface Post {
   id: string
   user_id: string
-  content?: string
+  content: string
   youtube_url?: string
+  image_url?: string
   likes_count: number
   comments_count: number
+  shares_count: number
   created_at: string
-  updated_at: string
-  profiles?: {
-    id: string
-    username: string
-    display_name: string
-    avatar_url?: string
-  }
+  updated_at?: string
+  profiles: Profile
 }
 
-export interface Comment {
+export interface Message {
   id: string
-  post_id: string
-  user_id: string
+  sender_id: string
+  receiver_id: string
   content: string
-  likes_count: number
+  is_read: boolean
   created_at: string
-  profiles?: {
-    id: string
-    username: string
-    display_name: string
-    avatar_url?: string
-  }
+  sender: Profile
+  receiver: Profile
 }
 
 export interface Badge {
@@ -80,8 +54,9 @@ export interface Badge {
   description: string
   icon: string
   color: string
-  xp_required: number
-  is_rare: boolean
+  rarity: "common" | "rare" | "epic" | "legendary"
+  requirements: any
+  created_at: string
 }
 
 export interface UserBadge {

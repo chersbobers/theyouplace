@@ -8,40 +8,54 @@ import { Users, MessageCircle, Video, Star } from "lucide-react"
 import type { Post } from "@/lib/types"
 
 async function getPosts(): Promise<Post[]> {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const { data: posts } = await supabase
-    .from("posts")
-    .select(`
-      *,
-      profiles (
-        id,
-        username,
-        display_name,
-        avatar_url,
-        level,
-        xp
-      )
-    `)
-    .order("created_at", { ascending: false })
-    .limit(20)
+    const { data: posts } = await supabase
+      .from("posts")
+      .select(`
+        *,
+        profiles (
+          id,
+          username,
+          display_name,
+          avatar_url,
+          level,
+          xp
+        )
+      `)
+      .order("created_at", { ascending: false })
+      .limit(20)
 
-  return posts || []
+    return posts || []
+  } catch (error) {
+    console.error("Error fetching posts:", error)
+    return []
+  }
 }
 
 async function getStats() {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const [{ count: usersCount }, { count: postsCount }, { count: videosCount }] = await Promise.all([
-    supabase.from("profiles").select("*", { count: "exact", head: true }),
-    supabase.from("posts").select("*", { count: "exact", head: true }),
-    supabase.from("posts").select("*", { count: "exact", head: true }).not("youtube_url", "is", null),
-  ])
+    const [{ count: usersCount }, { count: postsCount }, { count: videosCount }] = await Promise.all([
+      supabase.from("profiles").select("*", { count: "exact", head: true }),
+      supabase.from("posts").select("*", { count: "exact", head: true }),
+      supabase.from("posts").select("*", { count: "exact", head: true }).not("youtube_url", "is", null),
+    ])
 
-  return {
-    users: usersCount || 0,
-    posts: postsCount || 0,
-    videos: videosCount || 0,
+    return {
+      users: usersCount || 0,
+      posts: postsCount || 0,
+      videos: videosCount || 0,
+    }
+  } catch (error) {
+    console.error("Error fetching stats:", error)
+    return {
+      users: 0,
+      posts: 0,
+      videos: 0,
+    }
   }
 }
 

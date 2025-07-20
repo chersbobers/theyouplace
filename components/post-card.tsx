@@ -1,13 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Heart, MessageCircle, Share, Star } from "lucide-react"
-import { likePost } from "@/app/actions/posts"
-import { toast } from "sonner"
+import { Heart, MessageCircle, Share, MoreHorizontal } from "lucide-react"
 import Link from "next/link"
 import type { Post } from "@/lib/types"
 
@@ -16,116 +14,98 @@ interface PostCardProps {
   currentUserId: string | null
 }
 
+function extractVideoId(url: string): string | null {
+  const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/
+  const match = url.match(regex)
+  return match ? match[1] : null
+}
+
 export function PostCard({ post, currentUserId }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(false)
-  const [likesCount, setLikesCount] = useState(post.likes_count || 0)
-  const [loading, setLoading] = useState(false)
+  const [likesCount, setLikesCount] = useState(post.likes_count)
 
-  const handleLike = async () => {
-    if (!currentUserId) {
-      toast.error("Please sign in to like posts")
-      return
-    }
-
-    setLoading(true)
-    try {
-      await likePost(post.id)
-      setIsLiked(!isLiked)
-      setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1))
-    } catch (error: any) {
-      toast.error(error.message || "Failed to like post")
-    } finally {
-      setLoading(false)
-    }
+  const handleLike = () => {
+    setIsLiked(!isLiked)
+    setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1))
   }
 
-  const extractYouTubeId = (url: string) => {
-    const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/
-    const match = url.match(regex)
-    return match ? match[1] : null
-  }
-
-  const youtubeId = post.youtube_url ? extractYouTubeId(post.youtube_url) : null
+  const videoId = post.youtube_url ? extractVideoId(post.youtube_url) : null
 
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card className="w-full">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
-            <Link href={`/profile/${post.profiles?.username}`}>
-              <Avatar className="h-10 w-10 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
-                <AvatarImage src={post.profiles?.avatar_url || ""} alt={post.profiles?.display_name || ""} />
-                <AvatarFallback>{post.profiles?.display_name?.[0] || "U"}</AvatarFallback>
+            <Link href={`/profile/${post.profiles.username}`}>
+              <Avatar className="cursor-pointer">
+                <AvatarImage src={post.profiles.avatar_url || ""} alt={post.profiles.display_name} />
+                <AvatarFallback>{post.profiles.display_name[0]}</AvatarFallback>
               </Avatar>
             </Link>
             <div>
-              <Link href={`/profile/${post.profiles?.username}`} className="hover:underline">
-                <p className="font-semibold">{post.profiles?.display_name}</p>
-              </Link>
               <div className="flex items-center space-x-2">
-                <p className="text-sm text-gray-500">@{post.profiles?.username}</p>
-                {post.profiles?.username === "chersbobers" && (
-                  <Badge
-                    variant="secondary"
-                    className="text-xs bg-gradient-to-r from-yellow-400 to-orange-500 text-white"
-                  >
+                <Link href={`/profile/${post.profiles.username}`}>
+                  <h3 className="font-semibold hover:underline cursor-pointer">{post.profiles.display_name}</h3>
+                </Link>
+                {post.profiles.username === "chersbobers" && (
+                  <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs">
                     ⭐ Creator
                   </Badge>
                 )}
-                <Badge variant="outline" className="text-xs">
-                  <Star className="w-3 h-3 mr-1" />
-                  Level {(post.profiles as any)?.level || 1}
-                </Badge>
+              </div>
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <Link href={`/profile/${post.profiles.username}`}>
+                  <span className="hover:underline cursor-pointer">@{post.profiles.username}</span>
+                </Link>
+                <span>•</span>
+                <span>Level {post.profiles.level}</span>
+                <span>•</span>
+                <span>{new Date(post.created_at).toLocaleDateString()}</span>
               </div>
             </div>
           </div>
-          <div className="text-sm text-gray-500">{new Date(post.created_at).toLocaleDateString()}</div>
+          <Button variant="ghost" size="sm">
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {post.content && <p className="text-gray-800 leading-relaxed">{post.content}</p>}
+        {/* Post Content */}
+        <div className="text-gray-900 whitespace-pre-wrap">{post.content}</div>
 
-        {youtubeId && (
-          <div className="rounded-lg overflow-hidden">
+        {/* YouTube Video */}
+        {videoId && (
+          <div className="aspect-video rounded-lg overflow-hidden">
             <iframe
-              width="100%"
-              height="315"
-              src={`https://www.youtube.com/embed/${youtubeId}`}
-              title="YouTube video player"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              src={`https://www.youtube.com/embed/${videoId}`}
+              title="YouTube video"
+              className="w-full h-full"
               allowFullScreen
-              className="w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             />
           </div>
         )}
 
+        {/* Post Actions */}
         <div className="flex items-center justify-between pt-2 border-t">
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleLike}
-              disabled={loading}
-              className={`flex items-center space-x-1 ${isLiked ? "text-red-500" : "text-gray-500"} hover:text-red-500`}
+              className={`flex items-center space-x-2 ${isLiked ? "text-red-500" : "text-gray-500"}`}
             >
               <Heart className={`w-4 h-4 ${isLiked ? "fill-current" : ""}`} />
               <span>{likesCount}</span>
             </Button>
-
-            <Button variant="ghost" size="sm" className="flex items-center space-x-1 text-gray-500 hover:text-blue-500">
+            <Button variant="ghost" size="sm" className="flex items-center space-x-2 text-gray-500">
               <MessageCircle className="w-4 h-4" />
-              <span>{post.comments_count || 0}</span>
+              <span>{post.comments_count}</span>
             </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex items-center space-x-1 text-gray-500 hover:text-green-500"
-            >
+            <Button variant="ghost" size="sm" className="flex items-center space-x-2 text-gray-500">
               <Share className="w-4 h-4" />
-              <span>Share</span>
+              <span>{post.shares_count}</span>
             </Button>
           </div>
         </div>

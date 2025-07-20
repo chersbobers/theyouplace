@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,173 +12,145 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Home, Users, MessageCircle, Settings, LogOut, Star, Trophy } from "lucide-react"
-import { createClient } from "@/lib/supabase"
+import { Home, Users, MessageCircle, Settings, LogOut, Palette } from "lucide-react"
 import { signOut } from "@/app/actions/auth"
-import type { Profile } from "@/lib/types"
+import { getSupabaseClient } from "@/lib/supabase"
+import type { User as SupabaseUser } from "@supabase/supabase-js"
 
 export function Navigation() {
-  const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const pathname = usePathname()
+  const supabase = getSupabaseClient()
 
   useEffect(() => {
-    const supabase = createClient()
-
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+    // Get initial user
+    supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
-
       if (user) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-        setProfile(profile)
+        // Get user profile
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single()
+          .then(({ data }) => setProfile(data))
       }
-      setLoading(false)
-    }
+    })
 
-    getUser()
-
+    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
-        setProfile(profile)
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single()
+          .then(({ data }) => setProfile(data))
       } else {
         setProfile(null)
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [supabase])
 
-  if (loading) {
-    return (
-      <nav className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg animate-pulse" />
-              <div className="w-32 h-6 bg-gray-200 rounded animate-pulse" />
-            </div>
-          </div>
-        </div>
-      </nav>
-    )
-  }
+  const navItems = [
+    { href: "/", label: "Home", icon: Home },
+    { href: "/users", label: "Community", icon: Users },
+    ...(user ? [{ href: "/messages", label: "Messages", icon: MessageCircle }] : []),
+  ]
 
   return (
-    <nav className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">Y</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto px-4">
+        <div className="flex h-16 items-center justify-between">
+          <div className="flex items-center space-x-8">
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">Y</span>
+              </div>
+              <span className="font-bold text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 The You Place
-              </h1>
-              <p className="text-xs text-gray-500">Where social media lives</p>
+              </span>
+            </Link>
+
+            <div className="hidden md:flex items-center space-x-6">
+              {navItems.map((item) => {
+                const Icon = item.icon
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
             </div>
-          </Link>
+          </div>
 
           <div className="flex items-center space-x-4">
             {user ? (
-              <>
-                <Link href="/">
-                  <Button variant="ghost" size="sm">
-                    <Home className="w-4 h-4 mr-2" />
-                    Home
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={profile?.avatar_url || ""} alt={profile?.display_name || "User"} />
+                      <AvatarFallback>{profile?.display_name?.[0] || "U"}</AvatarFallback>
+                    </Avatar>
                   </Button>
-                </Link>
-                <Link href="/users">
-                  <Button variant="ghost" size="sm">
-                    <Users className="w-4 h-4 mr-2" />
-                    Community
-                  </Button>
-                </Link>
-                <Link href="/messages">
-                  <Button variant="ghost" size="sm">
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Messages
-                  </Button>
-                </Link>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={profile?.avatar_url || ""} alt={profile?.display_name || ""} />
-                        <AvatarFallback>{profile?.display_name?.[0] || "U"}</AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-80" align="end" forceMount>
-                    <div className="flex flex-col space-y-2 p-4">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={profile?.avatar_url || ""} alt={profile?.display_name || ""} />
-                          <AvatarFallback>{profile?.display_name?.[0] || "U"}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{profile?.display_name}</p>
-                          <p className="text-xs text-muted-foreground">@{profile?.username}</p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="secondary" className="text-xs">
-                              <Star className="w-3 h-3 mr-1" />
-                              Level {profile?.level || 1}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              <Trophy className="w-3 h-3 mr-1" />
-                              {profile?.xp || 0} XP
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium">{profile?.display_name || "User"}</p>
+                      <p className="w-[200px] truncate text-sm text-muted-foreground">@{profile?.username || "user"}</p>
                     </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href={`/profile/${profile?.username}`} className="w-full">
-                        View Profile
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings" className="w-full">
-                        <Settings className="w-4 h-4 mr-2" />
-                        Settings
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/customize" className="w-full">
-                        Customize Profile
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => signOut()}>
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Sign Out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={`/profile/${profile?.username}`} className="flex items-center">
+                      <Palette className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/customize" className="flex items-center">
+                      <Palette className="mr-2 h-4 w-4" />
+                      <span>Customize</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="flex items-center">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-red-600 focus:text-red-600" onSelect={() => signOut()}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <div className="flex items-center space-x-2">
                 <Link href="/auth">
-                  <Button variant="outline" size="sm">
-                    Sign In
-                  </Button>
+                  <Button variant="outline">Sign In</Button>
                 </Link>
                 <Link href="/auth">
-                  <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-                  >
-                    Join The You Place
-                  </Button>
+                  <Button>Join Now</Button>
                 </Link>
               </div>
             )}

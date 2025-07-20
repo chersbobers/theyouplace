@@ -6,51 +6,66 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { PostCard } from "@/components/post-card"
-import { Settings, Share, UserPlus, Music, MessageCircle } from "lucide-react"
+import { Settings, Share, UserPlus, Music, MessageCircle, Palette } from "lucide-react"
 import Link from "next/link"
-import { Palette } from "lucide-react" // Import Palette here
 import type { Profile, Post } from "@/lib/types"
 
 async function getProfileByUsername(username: string): Promise<Profile | null> {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("username", username).single()
+    const { data: profile } = await supabase.from("profiles").select("*").eq("username", username).single()
 
-  return profile
+    return profile
+  } catch (error) {
+    console.error("Error fetching profile:", error)
+    return null
+  }
 }
 
 async function getUserPosts(userId: string): Promise<Post[]> {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const { data: posts } = await supabase
-    .from("posts")
-    .select(`
-      *,
-      profiles (
-        id,
-        username,
-        display_name,
-        avatar_url,
-        level,
-        xp
-      )
-    `)
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
+    const { data: posts } = await supabase
+      .from("posts")
+      .select(`
+        *,
+        profiles (
+          id,
+          username,
+          display_name,
+          avatar_url,
+          level,
+          xp
+        )
+      `)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
 
-  return posts || []
+    return posts || []
+  } catch (error) {
+    console.error("Error fetching user posts:", error)
+    return []
+  }
 }
 
 export default async function ProfilePage({ params }: { params: { username: string } }) {
   const profile = await getProfileByUsername(params.username)
 
-  if (!profile || !profile.is_profile_public) {
+  if (!profile) {
+    notFound()
+  }
+
+  // Check if profile is public or if it's the user's own profile
+  const user = await getUser()
+  const isOwnProfile = user?.id === profile.id
+
+  if (!profile.is_profile_public && !isOwnProfile) {
     notFound()
   }
 
   const posts = await getUserPosts(profile.id)
-  const user = await getUser()
-  const isOwnProfile = user?.id === profile.id
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -94,7 +109,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
                       </Link>
                       <Link href="/customize">
                         <Button>
-                          <Palette className="w-4 h-4 mr-2" /> {/* Palette is now declared */}
+                          <Palette className="w-4 h-4 mr-2" />
                           Customize
                         </Button>
                       </Link>
