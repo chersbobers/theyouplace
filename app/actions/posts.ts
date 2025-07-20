@@ -1,81 +1,95 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase-server"
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
-export async function createPost(formData: FormData) {
-  const supabase = createServerClient()
+export async function createPost(content: string, youtubeUrl?: string) {
+  const supabase = createServerActionClient({ cookies })
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "Not authenticated" }
+  if (!user) throw new Error("Not authenticated")
 
-  const type = formData.get("type") as string
-  const content = formData.get("content") as string
-  const videoUrl = formData.get("videoUrl") as string
-
-  let processedVideoUrl = null
-  if (type === "video" && videoUrl) {
-    const videoId = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)?.[1]
-    if (videoId) processedVideoUrl = `https://www.youtube.com/embed/${videoId}`
-  }
-
-  const { error } = await supabase.from("posts").insert({
-    user_id: user.id,
-    type,
-    content,
-    video_url: processedVideoUrl,
-  })
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  revalidatePath("/")
-  return { success: true }
-}
-
-export async function toggleLike(postId: string) {
-  const supabase = createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return
-
-  const { data: existingLike } = await supabase
-    .from("likes")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("post_id", postId)
+  const { data, error } = await supabase
+    .from("posts")
+    .insert({
+      content: content.trim() || null,
+      youtube_url: youtubeUrl?.trim() || null,
+      author_id: user.id,
+    })
+    .select()
     .single()
 
-  if (existingLike) {
-    await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId)
-  } else {
-    await supabase.from("likes").insert({ user_id: user.id, post_id: postId })
-  }
+  if (error) throw error
+
+  revalidatePath("/")
+  return data
+}
+
+export async function likePost(postId: string) {
+  const supabase = createServerActionClient({ cookies })
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error("Not authenticated")
+
+  const { error } = await supabase.from("post_likes").insert({
+    post_id: postId,
+    user_id: user.id,
+  })
+
+  if (error) throw error
 
   revalidatePath("/")
 }
 
-export async function toggleBookmark(postId: string) {
-  const supabase = createServerClient()
+export async function unlikePost(postId: string) {
+  const supabase = createServerActionClient({ cookies })
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return
+  if (!user) throw new Error("Not authenticated")
 
-  // Simple bookmark toggle - you can implement this table later
+  const { error } = await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", user.id)
+
+  if (error) throw error
+
   revalidatePath("/")
 }
 
-export async function deletePost(postId: string) {
-  const supabase = createServerClient()
+export async function bookmarkPost(postId: string) {
+  const supabase = createServerActionClient({ cookies })
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return
+  if (!user) throw new Error("Not authenticated")
 
-  await supabase.from("posts").delete().eq("id", postId).eq("user_id", user.id)
+  const { error } = await supabase.from("bookmarks").insert({
+    post_id: postId,
+    user_id: user.id,
+  })
+
+  if (error) throw error
+
+  revalidatePath("/")
+}
+
+export async function unbookmarkPost(postId: string) {
+  const supabase = createServerActionClient({ cookies })
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error("Not authenticated")
+
+  const { error } = await supabase.from("bookmarks").delete().eq("post_id", postId).eq("user_id", user.id)
+
+  if (error) throw error
+
   revalidatePath("/")
 }

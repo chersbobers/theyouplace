@@ -1,159 +1,217 @@
 "use client"
 
 import { useState } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { Heart, MessageCircle, Share, Bookmark, Send, MessageSquare } from "lucide-react"
-import { toggleLike, toggleBookmark } from "@/app/actions/posts"
-import { createComment } from "@/app/actions/comments"
+import { Heart, MessageCircle, Bookmark, Share2, Send, User, MessageSquare } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
+import { likePost, unlikePost, bookmarkPost, unbookmarkPost } from "@/app/actions/posts"
+import { addComment } from "@/app/actions/comments"
 import Link from "next/link"
 
 interface PostCardProps {
   post: any
-  currentUserId?: string
-  isGuest?: boolean
+  currentUser: any
 }
 
-export function PostCard({ post, currentUserId, isGuest = false }: PostCardProps) {
-  const [isCommenting, setIsCommenting] = useState(false)
-  const [commentContent, setCommentContent] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export function PostCard({ post, currentUser }: PostCardProps) {
+  const [isLiked, setIsLiked] = useState(false)
+  const [isBookmarked, setIsBookmarked] = useState(false)
+  const [showComments, setShowComments] = useState(false)
+  const [newComment, setNewComment] = useState("")
+  const [comments, setComments] = useState(post.comments || [])
+  const [likeCount, setLikeCount] = useState(post.post_likes?.[0]?.count || 0)
 
-  const handleLike = () => {
-    if (isGuest) {
-      alert("Please sign in to like posts!")
-      return
+  const handleLike = async () => {
+    if (!currentUser) return
+
+    try {
+      if (isLiked) {
+        await unlikePost(post.id)
+        setLikeCount((prev) => prev - 1)
+      } else {
+        await likePost(post.id)
+        setLikeCount((prev) => prev + 1)
+      }
+      setIsLiked(!isLiked)
+    } catch (error) {
+      console.error("Error toggling like:", error)
     }
-    toggleLike(post.id)
   }
 
   const handleBookmark = async () => {
-    if (isGuest) {
-      alert("Please sign in to bookmark posts!")
-      return
+    if (!currentUser) return
+
+    try {
+      if (isBookmarked) {
+        await unbookmarkPost(post.id)
+      } else {
+        await bookmarkPost(post.id)
+      }
+      setIsBookmarked(!isBookmarked)
+    } catch (error) {
+      console.error("Error toggling bookmark:", error)
     }
-    await toggleBookmark(post.id)
   }
 
   const handleComment = async () => {
-    if (isGuest) {
-      alert("Please sign in to comment!")
-      return
+    if (!currentUser || !newComment.trim()) return
+
+    try {
+      const comment = await addComment(post.id, newComment)
+      setComments([...comments, comment])
+      setNewComment("")
+    } catch (error) {
+      console.error("Error adding comment:", error)
     }
-    if (!commentContent.trim()) return
-
-    setIsSubmitting(true)
-    const formData = new FormData()
-    formData.append("postId", post.id)
-    formData.append("content", commentContent)
-
-    await createComment(formData)
-    setCommentContent("")
-    setIsCommenting(false)
-    setIsSubmitting(false)
   }
 
-  const handleDM = () => {
-    if (isGuest) {
-      alert("Please sign in to send messages!")
-      return
-    }
-    // Redirect to DM with this user
-    window.location.href = `/messages?user=${post.profiles.username}`
+  const extractVideoId = (url: string) => {
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)
+    return match ? match[1] : null
   }
 
-  const timeAgo = formatDistanceToNow(new Date(post.created_at), { addSuffix: true })
+  const videoId = post.youtube_url ? extractVideoId(post.youtube_url) : null
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center space-x-3">
             <Avatar>
               <AvatarImage src={post.profiles?.avatar_url || "/placeholder.svg"} />
-              <AvatarFallback>{post.profiles?.display_name?.[0] || "U"}</AvatarFallback>
+              <AvatarFallback>
+                <User className="h-4 w-4" />
+              </AvatarFallback>
             </Avatar>
             <div>
-              <h3 className="font-semibold">{post.profiles?.display_name || "Anonymous"}</h3>
-              <p className="text-sm text-muted-foreground">
-                @{post.profiles?.username || "user"} · {timeAgo}
+              <div className="flex items-center gap-2">
+                <Link href={`/profile/${post.profiles?.username}`} className="font-semibold hover:underline">
+                  {post.profiles?.display_name || post.profiles?.username || "Anonymous"}
+                </Link>
+                <Badge variant="secondary" className="text-xs">
+                  Level {post.profiles?.level || 1}
+                </Badge>
+              </div>
+              <p className="text-sm text-gray-500">
+                {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
               </p>
             </div>
           </div>
-          {!isGuest && currentUserId !== post.user_id && (
-            <Button variant="ghost" size="sm" onClick={handleDM}>
-              <MessageSquare className="w-4 h-4" />
-            </Button>
+          {currentUser && (
+            <Link href={`/messages?user=${post.profiles?.username}`}>
+              <Button variant="ghost" size="sm">
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+            </Link>
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="whitespace-pre-wrap">{post.content}</p>
 
-        {post.type === "video" && post.video_url && (
-          <iframe
-            width="100%"
-            height="315"
-            src={post.video_url}
-            title={post.video_title}
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="rounded-lg overflow-hidden w-full aspect-video"
-          />
+      <CardContent className="space-y-4">
+        {post.content && <p className="text-gray-900">{post.content}</p>}
+
+        {videoId && (
+          <div className="aspect-video">
+            <iframe
+              src={`https://www.youtube.com/embed/${videoId}`}
+              title="YouTube video"
+              className="w-full h-full rounded-lg"
+              allowFullScreen
+            />
+          </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t">
-          <div className="flex items-center gap-6">
-            <Button variant="ghost" size="sm" onClick={handleLike}>
-              <Heart className={`w-4 h-4 mr-2 ${post.is_liked ? "fill-red-500 text-red-500" : ""}`} />
-              {post.likes_count || 0}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => !isGuest && setIsCommenting(!isCommenting)}>
-              <MessageCircle className="w-4 h-4 mr-2" />
-              {post.comments_count || 0}
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Share className="w-4 h-4 mr-2" />
-              Share
+        <div className="flex items-center justify-between pt-4 border-t">
+          <div className="flex items-center space-x-4">
+            {currentUser ? (
+              <Button variant="ghost" size="sm" onClick={handleLike} className={isLiked ? "text-red-500" : ""}>
+                <Heart className={`h-4 w-4 mr-1 ${isLiked ? "fill-current" : ""}`} />
+                {likeCount}
+              </Button>
+            ) : (
+              <div className="flex items-center text-gray-500">
+                <Heart className="h-4 w-4 mr-1" />
+                {likeCount}
+              </div>
+            )}
+
+            <Button variant="ghost" size="sm" onClick={() => setShowComments(!showComments)}>
+              <MessageCircle className="h-4 w-4 mr-1" />
+              {comments.length}
             </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleBookmark}>
-            <Bookmark className={`w-4 h-4 ${post.is_bookmarked ? "fill-blue-500 text-blue-500" : ""}`} />
-          </Button>
+
+          <div className="flex items-center space-x-2">
+            {currentUser && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBookmark}
+                className={isBookmarked ? "text-blue-500" : ""}
+              >
+                <Bookmark className={`h-4 w-4 ${isBookmarked ? "fill-current" : ""}`} />
+              </Button>
+            )}
+
+            <Button variant="ghost" size="sm">
+              <Share2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
-        {isCommenting && !isGuest && (
-          <div className="space-y-3 pt-3 border-t">
-            <Textarea
-              placeholder="Write a comment..."
-              value={commentContent}
-              onChange={(e) => setCommentContent(e.target.value)}
-              rows={2}
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setIsCommenting(false)}>
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleComment} disabled={!commentContent.trim() || isSubmitting}>
-                <Send className="w-4 h-4 mr-2" />
-                {isSubmitting ? "Posting..." : "Comment"}
-              </Button>
-            </div>
-          </div>
-        )}
+        {showComments && (
+          <div className="space-y-4 pt-4 border-t">
+            {currentUser && (
+              <div className="flex space-x-2">
+                <Textarea
+                  placeholder="Add a comment..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  className="flex-1"
+                  rows={2}
+                />
+                <Button onClick={handleComment} size="sm">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
-        {isGuest && (
-          <div className="pt-3 border-t">
-            <p className="text-sm text-muted-foreground text-center">
-              <Link href="/auth" className="text-primary hover:underline">
-                Sign in
-              </Link>{" "}
-              to like, comment, and interact with posts
-            </p>
+            <div className="space-y-3">
+              {comments.map((comment: any) => (
+                <div key={comment.id} className="flex space-x-3">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={comment.profiles?.avatar_url || "/placeholder.svg"} />
+                    <AvatarFallback>
+                      <User className="h-3 w-3" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold text-sm">
+                        {comment.profiles?.display_name || comment.profiles?.username}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700">{comment.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {!currentUser && (
+              <div className="text-center py-4">
+                <p className="text-gray-500 mb-2">Sign in to comment</p>
+                <Button variant="outline" size="sm">
+                  Sign In
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
