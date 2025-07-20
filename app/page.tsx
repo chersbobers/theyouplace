@@ -1,153 +1,95 @@
-"use client"
-
-import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase-server"
 import { CreatePost } from "@/components/create-post"
 import { PostCard } from "@/components/post-card"
-import { AuthForm } from "@/components/auth-form"
-import { supabase } from "@/lib/supabase"
-import type { Post, User } from "@/lib/types"
 import { Sparkles, Heart, Users } from "lucide-react"
 
-export default function HomePage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [posts, setPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
+export default async function HomePage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  useEffect(() => {
-    const getUser = async () => {
-      try {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser()
-
-        if (authUser) {
-          const { data: profile } = await supabase.from("users").select("*").eq("id", authUser.id).single()
-
-          setUser(profile)
-        }
-      } catch (error) {
-        console.error("Error fetching user:", error)
-      }
-    }
-
-    const getPosts = async () => {
-      try {
-        const { data: postsData } = await supabase
-          .from("posts")
-          .select(`
-            *,
-            user:users(*)
-          `)
-          .order("created_at", { ascending: false })
-          .limit(20)
-
-        setPosts(postsData || [])
-      } catch (error) {
-        console.error("Error fetching posts:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    getUser()
-    getPosts()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
-        const { data: profile } = await supabase.from("users").select("*").eq("id", session.user.id).single()
-
-        setUser(profile)
-      } else if (event === "SIGNED_OUT") {
-        setUser(null)
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const handlePostCreated = (newPost: Post) => {
-    setPosts((prev) => [newPost, ...prev])
+  let posts = []
+  if (user) {
+    const { data } = await supabase
+      .from("posts")
+      .select(`
+        *,
+        user:profiles(username, display_name, avatar_url)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(20)
+    posts = data || []
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="max-w-md w-full space-y-8">
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <Sparkles className="h-16 w-16 text-pink-500 neon-text" />
-            </div>
-            <h1 className="myspace-title text-4xl font-bold neon-text text-pink-500 mb-2">THE YOU PLACE</h1>
-            <p className="text-pink-300 text-lg retro-font">✨ Express Yourself ✨ Share Your World ✨</p>
-            <div className="mt-6 p-4 retro-border bg-black/50 rounded-lg">
-              <p className="text-pink-200 mb-4">
-                Welcome to your digital space! Create your profile, share posts, connect with friends, and make it
-                uniquely yours.
-              </p>
-              <div className="flex justify-center space-x-6 text-sm text-pink-300">
-                <div className="flex items-center">
-                  <Heart className="h-4 w-4 mr-1" />
-                  Share Posts
-                </div>
-                <div className="flex items-center">
-                  <Users className="h-4 w-4 mr-1" />
-                  Make Friends
-                </div>
-                <div className="flex items-center">
-                  <Sparkles className="h-4 w-4 mr-1" />
-                  Customize
-                </div>
-              </div>
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+        <div className="text-center space-y-8 max-w-2xl">
+          <div className="flex justify-center mb-8">
+            <div className="relative">
+              <Heart className="h-24 w-24 text-pink-500 animate-pulse" />
+              <Sparkles className="h-12 w-12 text-purple-400 absolute -top-4 -right-4 animate-bounce" />
             </div>
           </div>
-          <AuthForm />
+          <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500 mb-4">
+            THE YOU PLACE
+          </h1>
+          <p className="text-2xl text-pink-300 font-semibold mb-6">✨ Your Digital Sanctuary ✨</p>
+          <p className="text-lg text-purple-400 mb-8 leading-relaxed">
+            Express yourself, connect with friends, and create your perfect digital space. Share your thoughts, videos,
+            and memories in a place that's truly yours.
+          </p>
+          <div className="flex justify-center space-x-8 mb-8">
+            <div className="text-center">
+              <Users className="h-8 w-8 text-blue-400 mx-auto mb-2" />
+              <p className="text-blue-300 font-semibold">Connect</p>
+            </div>
+            <div className="text-center">
+              <Heart className="h-8 w-8 text-pink-400 mx-auto mb-2" />
+              <p className="text-pink-300 font-semibold">Express</p>
+            </div>
+            <div className="text-center">
+              <Sparkles className="h-8 w-8 text-purple-400 mx-auto mb-2" />
+              <p className="text-purple-300 font-semibold">Create</p>
+            </div>
+          </div>
+          <a
+            href="/auth"
+            className="inline-block bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg shadow-pink-500/25 transition-all duration-300 hover:scale-105"
+          >
+            Join The Community ✨
+          </a>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="text-center mb-8">
-        <h1 className="myspace-title text-3xl font-bold neon-text text-pink-500 mb-2">
-          Welcome back, {user.display_name || user.username}! ✨
-        </h1>
-        <p className="text-pink-300 retro-font">What's on your mind today?</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500 mb-2">
+              Welcome to Your Space
+            </h1>
+            <p className="text-purple-300">Share your world with the community ✨</p>
+          </div>
 
-      <div className="retro-border bg-black/50 p-6 rounded-lg sparkle">
-        <CreatePost onPostCreated={handlePostCreated} />
-      </div>
+          <CreatePost />
 
-      <div className="space-y-6">
-        {loading ? (
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="retro-border bg-black/50 p-6 rounded-lg">
-                <div className="animate-pulse">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-pink-500/20 rounded-full" />
-                    <div className="h-4 bg-pink-500/20 rounded w-24" />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-pink-500/20 rounded w-full" />
-                    <div className="h-4 bg-pink-500/20 rounded w-3/4" />
-                  </div>
-                </div>
+          <div className="space-y-6">
+            {posts.length > 0 ? (
+              posts.map((post: any) => <PostCard key={post.id} post={post} />)
+            ) : (
+              <div className="text-center py-12">
+                <Sparkles className="h-16 w-16 text-purple-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-purple-300 mb-2">No posts yet</h3>
+                <p className="text-gray-400">Be the first to share something amazing!</p>
               </div>
-            ))}
+            )}
           </div>
-        ) : posts.length === 0 ? (
-          <div className="text-center py-12 retro-border bg-black/50 rounded-lg">
-            <Sparkles className="h-12 w-12 text-pink-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-pink-300 mb-2">No posts yet!</h3>
-            <p className="text-pink-400">Be the first to share something amazing!</p>
-          </div>
-        ) : (
-          posts.map((post) => <PostCard key={post.id} post={post} currentUser={user} />)
-        )}
+        </div>
       </div>
     </div>
   )

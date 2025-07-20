@@ -23,44 +23,9 @@ export async function createClient() {
 }
 
 export async function getUser() {
-  try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
-
-    if (error || !user) {
-      return null
-    }
-
-    // Get user profile
-    const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-    return {
-      ...user,
-      profile: profile || {
-        id: user.id,
-        username: user.email?.split("@")[0] || "user",
-        display_name: user.user_metadata?.full_name || "Anonymous",
-        bio: "",
-        avatar_url: user.user_metadata?.avatar_url || "",
-        xp: 0,
-        level: 1,
-        posts_count: 0,
-        followers_count: 0,
-        following_count: 0,
-        is_profile_public: true,
-        theme_primary_color: "#3b82f6",
-        theme_secondary_color: "#1d4ed8",
-        theme_accent_color: "#60a5fa",
-        theme_background_color: "#ffffff",
-        theme_text_color: "#111827",
-        created_at: new Date().toISOString(),
-      },
-    }
-  } catch (error) {
-    console.error("Error getting user:", error)
-    return null
-  }
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return user
 }

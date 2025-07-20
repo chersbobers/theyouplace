@@ -1,60 +1,57 @@
 "use server"
 
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 
 export async function createPost(formData: FormData) {
+  const content = formData.get("content") as string
+  const youtubeUrl = formData.get("youtubeUrl") as string
+
+  if (!content && !youtubeUrl) {
+    return { error: "Content or YouTube URL is required" }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "You must be logged in to create a post" }
+  }
+
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { error: "You must be logged in to create a post" }
-    }
-
-    const content = formData.get("content") as string
-    const videoUrl = formData.get("video_url") as string
-
-    if (!content?.trim()) {
-      return { error: "Content is required" }
-    }
-
-    const { data: post, error } = await supabase
-      .from("posts")
-      .insert({
-        user_id: user.id,
-        content: content.trim(),
-        video_url: videoUrl || null,
-      })
-      .select(`
-        *,
-        user:users(*)
-      `)
-      .single()
+    const { error } = await supabase.from("posts").insert({
+      user_id: user.id,
+      content: content || "",
+      youtube_url: youtubeUrl || null,
+      media_type: youtubeUrl ? "youtube" : "text",
+    })
 
     if (error) {
-      return { error: "Failed to create post" }
+      return { error: error.message }
     }
 
     revalidatePath("/")
-    return { success: true, post }
+    return { success: true }
   } catch (error) {
-    return { error: "An unexpected error occurred" }
+    console.error("Create post error:", error)
+    return { error: "Failed to create post" }
   }
 }
 
 export async function likePost(postId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "You must be logged in to like a post" }
+  }
+
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { error: "You must be logged in to like posts" }
-    }
-
-    // Check if user already liked this post
+    // Check if already liked
     const { data: existingLike } = await supabase
       .from("post_likes")
       .select("id")
@@ -63,10 +60,10 @@ export async function likePost(postId: string) {
       .single()
 
     if (existingLike) {
-      // Unlike the post
+      // Unlike
       await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", user.id)
     } else {
-      // Like the post
+      // Like
       await supabase.from("post_likes").insert({
         post_id: postId,
         user_id: user.id,
@@ -76,6 +73,7 @@ export async function likePost(postId: string) {
     revalidatePath("/")
     return { success: true }
   } catch (error) {
-    return { error: "An unexpected error occurred" }
+    console.error("Like post error:", error)
+    return { error: "Failed to like post" }
   }
 }

@@ -5,30 +5,25 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { createClient } from "@/lib/supabase"
+import { signOut } from "@/app/actions/auth"
 import { Home, Users, MessageCircle, Settings, LogOut, Sparkles } from "lucide-react"
-import { supabase } from "@/lib/supabase"
-import type { UserProfile } from "@/lib/types"
 
 export function Navigation() {
-  const [user, setUser] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const supabase = createClient()
 
   useEffect(() => {
     const getUser = async () => {
-      try {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setUser(user)
 
-        if (authUser) {
-          const { data: profile } = await supabase.from("users").select("*").eq("id", authUser.id).single()
-
-          setUser(profile)
-        }
-      } catch (error) {
-        console.error("Error fetching user:", error)
-      } finally {
-        setLoading(false)
+      if (user) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+        setProfile(profile)
       }
     }
 
@@ -36,63 +31,50 @@ export function Navigation() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
-        const { data: profile } = await supabase.from("users").select("*").eq("id", session.user.id).single()
-
-        setUser(profile)
-      } else if (event === "SIGNED_OUT") {
-        setUser(null)
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null)
+      if (session?.user) {
+        getUser()
+      } else {
+        setProfile(null)
       }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-  }
-
-  if (loading) {
-    return (
-      <nav className="border-b border-pink-500/20 bg-black/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="h-8 w-32 bg-pink-500/20 rounded animate-pulse" />
-            <div className="h-8 w-20 bg-pink-500/20 rounded animate-pulse" />
-          </div>
-        </div>
-      </nav>
-    )
-  }
-
   return (
-    <nav className="border-b border-pink-500/20 bg-black/50 backdrop-blur-sm sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
+    <nav className="bg-black/90 border-b border-pink-500/30 backdrop-blur-sm sticky top-0 z-50">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center space-x-2">
             <Sparkles className="h-8 w-8 text-pink-500" />
-            <span className="myspace-title text-2xl neon-text text-pink-500">THE YOU PLACE</span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+              The You Place
+            </span>
           </Link>
 
           <div className="flex items-center space-x-4">
             {user ? (
               <>
                 <Link href="/">
-                  <Button variant="ghost" size="sm" className="text-pink-300 hover:text-pink-500">
+                  <Button variant="ghost" size="sm" className="text-pink-300 hover:text-pink-400 hover:bg-pink-500/10">
                     <Home className="h-4 w-4 mr-2" />
                     Home
                   </Button>
                 </Link>
                 <Link href="/users">
-                  <Button variant="ghost" size="sm" className="text-pink-300 hover:text-pink-500">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-purple-300 hover:text-purple-400 hover:bg-purple-500/10"
+                  >
                     <Users className="h-4 w-4 mr-2" />
-                    Community
+                    Users
                   </Button>
                 </Link>
                 <Link href="/messages">
-                  <Button variant="ghost" size="sm" className="text-pink-300 hover:text-pink-500">
+                  <Button variant="ghost" size="sm" className="text-blue-300 hover:text-blue-400 hover:bg-blue-500/10">
                     <MessageCircle className="h-4 w-4 mr-2" />
                     Messages
                   </Button>
@@ -100,44 +82,45 @@ export function Navigation() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full retro-border">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={user.avatar_url || ""} alt={user.display_name || user.username} />
-                        <AvatarFallback className="bg-pink-500 text-white">
-                          {(user.display_name || user.username).charAt(0).toUpperCase()}
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                      <Avatar className="h-8 w-8 border-2 border-pink-500/50">
+                        <AvatarImage src={profile?.avatar_url || "/placeholder.svg"} alt={profile?.display_name} />
+                        <AvatarFallback className="bg-gradient-to-r from-pink-500 to-purple-500 text-white">
+                          {profile?.display_name?.charAt(0) || user?.email?.charAt(0) || "U"}
                         </AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-black/90 border-pink-500/20" align="end" forceMount>
+                  <DropdownMenuContent className="w-56 bg-black/90 border-pink-500/30" align="end" forceMount>
                     <DropdownMenuItem asChild>
-                      <Link href={`/profile/${user.username}`} className="flex items-center text-pink-300">
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        <span>Profile</span>
+                      <Link href={`/profile/${profile?.username}`} className="text-pink-300 hover:text-pink-400">
+                        My Profile
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/settings" className="flex items-center text-pink-300">
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Settings</span>
+                      <Link href="/settings" className="text-purple-300 hover:text-purple-400">
+                        <Settings className="h-4 w-4 mr-2" />
+                        Settings
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/customize" className="flex items-center text-pink-300">
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        <span>Customize</span>
+                      <Link href="/customize" className="text-blue-300 hover:text-blue-400">
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Customize
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleSignOut} className="text-pink-300">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Sign out</span>
+                    <DropdownMenuItem onClick={() => signOut()} className="text-red-300 hover:text-red-400">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
             ) : (
               <Link href="/auth">
-                <Button className="bg-pink-500 hover:bg-pink-600 text-white retro-border">Sign In</Button>
+                <Button className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-semibold">
+                  Join Now ✨
+                </Button>
               </Link>
             )}
           </div>

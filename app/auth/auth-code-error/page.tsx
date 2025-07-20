@@ -1,33 +1,34 @@
-import Link from "next/link"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, Home } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
+import Link from "next/link"
 
-export default function AuthCodeError() {
+export default function AuthCodeErrorPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="max-w-md w-full text-center space-y-6">
-        <div className="retro-border bg-black/50 p-8 rounded-lg">
-          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-pink-500 mb-4">Authentication Error</h1>
-          <p className="text-pink-300 mb-6">
-            There was a problem signing you in. This might be due to an expired link or a configuration issue.
-          </p>
-          <div className="space-y-3">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-black/80 border-red-500/50">
+        <CardHeader className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <CardTitle className="text-2xl text-red-400">Authentication Error</CardTitle>
+          <CardDescription className="text-gray-300">
+            There was a problem signing you in. This could be due to:
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ul className="text-sm text-gray-400 space-y-2">
+            <li>• The authentication link has expired</li>
+            <li>• The link was already used</li>
+            <li>• There was a network issue</li>
+          </ul>
+          <div className="pt-4">
             <Link href="/auth">
-              <Button className="w-full bg-pink-500 hover:bg-pink-600 text-white">Try Again</Button>
-            </Link>
-            <Link href="/">
-              <Button
-                variant="outline"
-                className="w-full border-pink-500/30 text-pink-300 hover:bg-pink-500/10 bg-transparent"
-              >
-                <Home className="mr-2 h-4 w-4" />
-                Go Home
+              <Button className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
+                Try Again
               </Button>
             </Link>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -9,8 +9,8 @@ import { Navigation } from "@/components/navigation"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "The You Place - Your Digital Space",
-  description: "Express yourself, share your world, connect with friends",
+  title: "The You Place - Your Digital Sanctuary",
+  description: "Express yourself, connect with others, and create your perfect digital space",
     generator: 'v0.dev'
 }
 
@@ -23,10 +23,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
-            <Navigation />
-            <main className="container mx-auto px-4 py-6">{children}</main>
-          </div>
+          <Navigation />
+          {children}
           <Toaster />
         </ThemeProvider>
       </body>
