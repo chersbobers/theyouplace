@@ -3,26 +3,27 @@
 import { createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 
-export async function createPost(content: string, youtubeUrl?: string) {
+export async function createPost(content: string, youtubeUrl?: string | null) {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "Not authenticated" }
+  if (!user) {
+    throw new Error("Not authenticated")
+  }
 
   const { error } = await supabase.from("posts").insert({
     user_id: user.id,
-    content: content.trim() || null,
-    youtube_url: youtubeUrl?.trim() || null,
+    content,
+    youtube_url: youtubeUrl,
   })
 
   if (error) {
-    return { error: error.message }
+    throw new Error(error.message)
   }
 
   revalidatePath("/")
-  return { success: true }
 }
 
 export async function likePost(postId: string) {
@@ -31,7 +32,9 @@ export async function likePost(postId: string) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "Not authenticated" }
+  if (!user) {
+    throw new Error("Not authenticated")
+  }
 
   // Check if already liked
   const { data: existingLike } = await supabase
@@ -53,64 +56,27 @@ export async function likePost(postId: string) {
   }
 
   revalidatePath("/")
-  return { success: true }
 }
 
-export async function unlikePost(postId: string) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "Not authenticated" }
-
-  const { error } = await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", user.id)
-
-  if (error) throw error
-
-  revalidatePath("/")
-}
-
-export async function bookmarkPost(postId: string) {
+export async function addComment(postId: string, content: string) {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return { error: "Not authenticated" }
-
-  // Check if already bookmarked
-  const { data: existingBookmark } = await supabase
-    .from("post_bookmarks")
-    .select("id")
-    .eq("post_id", postId)
-    .eq("user_id", user.id)
-    .single()
-
-  if (existingBookmark) {
-    // Remove bookmark
-    await supabase.from("post_bookmarks").delete().eq("post_id", postId).eq("user_id", user.id)
-  } else {
-    // Add bookmark
-    await supabase.from("post_bookmarks").insert({
-      post_id: postId,
-      user_id: user.id,
-    })
+  if (!user) {
+    throw new Error("Not authenticated")
   }
 
-  revalidatePath("/")
-  return { success: true }
-}
+  const { error } = await supabase.from("comments").insert({
+    post_id: postId,
+    user_id: user.id,
+    content,
+  })
 
-export async function unbookmarkPost(postId: string) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: "Not authenticated" }
-
-  const { error } = await supabase.from("post_bookmarks").delete().eq("post_id", postId).eq("user_id", user.id)
-
-  if (error) throw error
+  if (error) {
+    throw new Error(error.message)
+  }
 
   revalidatePath("/")
 }

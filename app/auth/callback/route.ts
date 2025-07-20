@@ -8,24 +8,8 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createClient()
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-
-    if (!error && data.user) {
-      // Check if profile exists, create if not
-      const { data: existingProfile } = await supabase.from("profiles").select("id").eq("id", data.user.id).single()
-
-      if (!existingProfile) {
-        await supabase.from("profiles").insert({
-          id: data.user.id,
-          username: data.user.email?.split("@")[0] || `user_${data.user.id.slice(0, 8)}`,
-          display_name: data.user.user_metadata?.full_name || "Anonymous",
-          avatar_url: data.user.user_metadata?.avatar_url || "",
-          bio: "",
-          xp: 0,
-          level: 1,
-        })
-      }
-
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error) {
       return NextResponse.redirect(`${origin}${next}`)
     }
   }

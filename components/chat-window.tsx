@@ -1,33 +1,41 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef } from "react"
+
+import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent } from "@/components/ui/card"
 import { Send } from "lucide-react"
 import { sendMessage } from "@/app/actions/messages"
 import { formatDistanceToNow } from "date-fns"
 
+interface Message {
+  id: string
+  content: string
+  created_at: string
+  sender_id: string
+  sender: {
+    display_name: string
+    avatar_url?: string
+  }
+}
+
 interface ChatWindowProps {
-  recipient: any
+  recipient: {
+    id: string
+    username: string
+    display_name: string
+    avatar_url?: string
+  }
   currentUserId: string
 }
 
 export function ChatWindow({ recipient, currentUserId }: ChatWindowProps) {
-  const [messages, setMessages] = useState<any[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,21 +43,9 @@ export function ChatWindow({ recipient, currentUserId }: ChatWindowProps) {
 
     setIsLoading(true)
     try {
-      // Add message to local state immediately for better UX
-      const tempMessage = {
-        id: Date.now().toString(),
-        content: newMessage,
-        sender_id: currentUserId,
-        created_at: new Date().toISOString(),
-      }
-      setMessages((prev) => [...prev, tempMessage])
+      await sendMessage(recipient.username, newMessage.trim())
       setNewMessage("")
-
-      // Send message to server
-      const result = await sendMessage(recipient.username, newMessage)
-      if (result.success) {
-        // Message sent successfully, no need to update local state again
-      }
+      // In a real app, you'd refresh messages here
     } catch (error) {
       console.error("Error sending message:", error)
     } finally {
@@ -58,8 +54,9 @@ export function ChatWindow({ recipient, currentUserId }: ChatWindowProps) {
   }
 
   return (
-    <Card className="h-full rounded-none border-0 flex flex-col">
-      <CardHeader className="border-b">
+    <div className="h-full flex flex-col">
+      {/* Chat Header */}
+      <div className="p-4 border-b">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10">
             <AvatarImage src={recipient.avatar_url || "/placeholder.svg"} />
@@ -70,41 +67,51 @@ export function ChatWindow({ recipient, currentUserId }: ChatWindowProps) {
             <p className="text-sm text-muted-foreground">@{recipient.username}</p>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="flex-1 flex flex-col p-0">
-        <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.sender_id === currentUserId ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                  msg.sender_id === currentUserId
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
-                }`}
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length > 0 ? (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${message.sender_id === currentUserId ? "justify-end" : "justify-start"}`}
+            >
+              <Card
+                className={`max-w-xs ${message.sender_id === currentUserId ? "bg-primary text-primary-foreground" : ""}`}
               >
-                <p className="text-sm">{msg.content}</p>
-                <p className="text-xs opacity-70 mt-1">{formatDistanceToNow(new Date(msg.created_at))} ago</p>
-              </div>
+                <CardContent className="p-3">
+                  <p className="text-sm">{message.content}</p>
+                  <p
+                    className={`text-xs mt-1 ${message.sender_id === currentUserId ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                  >
+                    {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-          ))}
-          {messages.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Start your conversation with {recipient.display_name}</p>
-            </div>
-          )}
-        </div>
-        <form onSubmit={handleSendMessage} className="p-4 border-t flex gap-2">
+          ))
+        ) : (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <p>Start a conversation with {recipient.display_name}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Message Input */}
+      <div className="p-4 border-t">
+        <form onSubmit={handleSendMessage} className="flex gap-2">
           <Input
+            placeholder={`Message ${recipient.display_name}...`}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
             disabled={isLoading}
           />
           <Button type="submit" disabled={!newMessage.trim() || isLoading}>
             <Send className="w-4 h-4" />
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

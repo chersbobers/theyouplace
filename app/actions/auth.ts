@@ -3,6 +3,39 @@
 import { createClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 
+export async function signInWithEmail(email: string, password: string) {
+  const supabase = await createClient()
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  redirect("/")
+}
+
+export async function signUpWithEmail(email: string, password: string) {
+  const supabase = await createClient()
+
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+    },
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  redirect("/")
+}
+
 export async function signInWithGoogle() {
   const supabase = await createClient()
 
@@ -14,8 +47,7 @@ export async function signInWithGoogle() {
   })
 
   if (error) {
-    console.error("Error signing in:", error)
-    return
+    throw new Error(error.message)
   }
 
   if (data.url) {
