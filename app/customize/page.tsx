@@ -1,10 +1,10 @@
-import { createServerClient } from "@/lib/supabase-server"
+import { createClient } from "@/lib/supabase-server"
 import { ProfileCustomizer } from "@/components/profile-customizer"
 import { redirect } from "next/navigation"
 import type { Profile, ProfileTheme } from "@/lib/types"
 
 async function getProfile(userId: string): Promise<Profile | null> {
-  const supabase = createServerClient()
+  const supabase = await createClient()
 
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).single()
 
@@ -20,7 +20,7 @@ async function getProfile(userId: string): Promise<Profile | null> {
 }
 
 async function getThemes(): Promise<ProfileTheme[]> {
-  const supabase = createServerClient()
+  const supabase = await createClient()
 
   const { data: themes } = await supabase
     .from("profile_themes")
@@ -31,7 +31,7 @@ async function getThemes(): Promise<ProfileTheme[]> {
 }
 
 export default async function CustomizePage() {
-  const supabase = createServerClient()
+  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -50,7 +50,7 @@ export default async function CustomizePage() {
   const handleSave = async (updates: Partial<Profile>) => {
     "use server"
 
-    const supabase = createServerClient()
+    const supabase = await createClient()
 
     const updateData = {
       ...updates,

@@ -1,11 +1,10 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 
 export async function signInWithGoogle() {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createClient()
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -15,7 +14,8 @@ export async function signInWithGoogle() {
   })
 
   if (error) {
-    throw error
+    console.error("Error signing in:", error)
+    return
   }
 
   if (data.url) {
@@ -24,7 +24,7 @@ export async function signInWithGoogle() {
 }
 
 export async function signOut() {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = await createClient()
   await supabase.auth.signOut()
   redirect("/")
 }

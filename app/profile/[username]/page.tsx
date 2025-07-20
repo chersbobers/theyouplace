@@ -1,5 +1,5 @@
 import type React from "react"
-import { createServerClient } from "@/lib/supabase-server"
+import { createClient } from "@/lib/supabase-server"
 import { notFound } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import Link from "next/link"
 import type { Profile, Post } from "@/lib/types"
 
 async function getProfileByUsername(username: string): Promise<Profile | null> {
-  const supabase = createServerClient()
+  const supabase = await createClient()
 
   const { data: profile } = await supabase.from("profiles").select("*").eq("username", username).single()
 
@@ -27,7 +27,7 @@ async function getProfileByUsername(username: string): Promise<Profile | null> {
 }
 
 async function getUserPosts(userId: string): Promise<Post[]> {
-  const supabase = createServerClient()
+  const supabase = await createClient()
 
   const { data: posts } = await supabase
     .from("posts")
@@ -55,7 +55,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
 
   const posts = await getUserPosts(profile.id)
 
-  const supabase = createServerClient()
+  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -134,19 +134,19 @@ export default async function ProfilePage({ params }: { params: { username: stri
                 <div className="flex gap-8 mb-6">
                   <div className="text-center">
                     <div className="text-2xl font-bold" style={{ color: profile.theme_primary_color }}>
-                      {profile.posts_count.toLocaleString()}
+                      {profile.posts_count?.toLocaleString() || 0}
                     </div>
                     <div className="text-sm opacity-80">Posts</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold" style={{ color: profile.theme_primary_color }}>
-                      {profile.followers_count.toLocaleString()}
+                      {profile.followers_count?.toLocaleString() || 0}
                     </div>
                     <div className="text-sm opacity-80">Followers</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold" style={{ color: profile.theme_primary_color }}>
-                      {profile.following_count.toLocaleString()}
+                      {profile.following_count?.toLocaleString() || 0}
                     </div>
                     <div className="text-sm opacity-80">Following</div>
                   </div>
@@ -207,19 +207,19 @@ export default async function ProfilePage({ params }: { params: { username: stri
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
                           <div className="font-bold" style={{ color: profile.theme_primary_color }}>
-                            {profile.posts_count}
+                            {profile.posts_count || 0}
                           </div>
                           <div className="text-xs opacity-80">Posts</div>
                         </div>
                         <div>
                           <div className="font-bold" style={{ color: profile.theme_primary_color }}>
-                            {profile.followers_count}
+                            {profile.followers_count || 0}
                           </div>
                           <div className="text-xs opacity-80">Followers</div>
                         </div>
                         <div>
                           <div className="font-bold" style={{ color: profile.theme_primary_color }}>
-                            {profile.following_count}
+                            {profile.following_count || 0}
                           </div>
                           <div className="text-xs opacity-80">Following</div>
                         </div>

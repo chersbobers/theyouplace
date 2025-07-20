@@ -1,36 +1,26 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 
-export async function addComment(postId: string, content: string) {
-  const supabase = createServerActionClient({ cookies })
-
+export async function createComment(postId: string, content: string) {
+  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) throw new Error("Not authenticated")
 
-  const { data, error } = await supabase
-    .from("comments")
-    .insert({
-      post_id: postId,
-      content: content.trim(),
-      author_id: user.id,
-    })
-    .select(`
-      *,
-      profiles:author_id (
-        username,
-        display_name,
-        avatar_url
-      )
-    `)
-    .single()
+  if (!user) return { error: "Not authenticated" }
 
-  if (error) throw error
+  const { error } = await supabase.from("post_comments").insert({
+    post_id: postId,
+    user_id: user.id,
+    content: content.trim(),
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
 
   revalidatePath("/")
-  return data
+  return { success: true }
 }

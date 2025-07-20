@@ -1,4 +1,4 @@
-import { createServerClient } from "@/lib/supabase-server"
+import { createClient } from "@/lib/supabase-server"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -7,7 +7,7 @@ import { MessageSquare, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 export default async function UsersPage() {
-  const supabase = createServerClient()
+  const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
