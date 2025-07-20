@@ -1,8 +1,10 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,142 +12,179 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
-import { Home, Users, MessageCircle, User, Settings, LogOut, Play } from "lucide-react"
+import { Home, Users, MessageCircle, Settings, LogOut, Star, Trophy } from "lucide-react"
+import { createClient } from "@/lib/supabase"
 import { signOut } from "@/app/actions/auth"
-import { AuthForm } from "@/components/auth-form"
-import { useState } from "react"
+import type { Profile } from "@/lib/types"
 
-interface NavigationProps {
-  user: any
-}
+export function Navigation() {
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [loading, setLoading] = useState(true)
 
-export function Navigation({ user }: NavigationProps) {
-  const [showAuth, setShowAuth] = useState(false)
+  useEffect(() => {
+    const supabase = createClient()
+
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setUser(user)
+
+      if (user) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+        setProfile(profile)
+      }
+      setLoading(false)
+    }
+
+    getUser()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        setProfile(profile)
+      } else {
+        setProfile(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  if (loading) {
+    return (
+      <nav className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg animate-pulse" />
+              <div className="w-32 h-6 bg-gray-200 rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </nav>
+    )
+  }
 
   return (
-    <>
-      <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 rounded-lg">
-                <Play className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 bg-clip-text text-transparent">
-                The You Place
-              </span>
-            </Link>
-
-            {/* Navigation Links */}
-            <div className="hidden md:flex items-center space-x-6">
-              <Link
-                href="/"
-                className="flex items-center space-x-2 text-sm font-medium hover:text-primary transition-colors"
-              >
-                <Home className="w-4 h-4" />
-                <span>Home</span>
-              </Link>
-              <Link
-                href="/users"
-                className="flex items-center space-x-2 text-sm font-medium hover:text-primary transition-colors"
-              >
-                <Users className="w-4 h-4" />
-                <span>Community</span>
-              </Link>
-              {user && (
-                <>
-                  <Link
-                    href="/messages"
-                    className="flex items-center space-x-2 text-sm font-medium hover:text-primary transition-colors"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>Messages</span>
-                  </Link>
-                </>
-              )}
+    <nav className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+      <div className="container mx-auto px-4 py-3">
+        <div className="flex items-center justify-between">
+          <Link href="/" className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">Y</span>
             </div>
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                The You Place
+              </h1>
+              <p className="text-xs text-gray-500">Where social media lives</p>
+            </div>
+          </Link>
 
-            {/* User Menu */}
-            <div className="flex items-center space-x-4">
-              {user ? (
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <>
+                <Link href="/">
+                  <Button variant="ghost" size="sm">
+                    <Home className="w-4 h-4 mr-2" />
+                    Home
+                  </Button>
+                </Link>
+                <Link href="/users">
+                  <Button variant="ghost" size="sm">
+                    <Users className="w-4 h-4 mr-2" />
+                    Community
+                  </Button>
+                </Link>
+                <Link href="/messages">
+                  <Button variant="ghost" size="sm">
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Messages
+                  </Button>
+                </Link>
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage
-                          src={user.profile?.avatar_url || "/placeholder.svg"}
-                          alt={user.profile?.display_name}
-                        />
-                        <AvatarFallback>{user.profile?.display_name?.[0] || "U"}</AvatarFallback>
+                        <AvatarImage src={profile?.avatar_url || ""} alt={profile?.display_name || ""} />
+                        <AvatarFallback>{profile?.display_name?.[0] || "U"}</AvatarFallback>
                       </Avatar>
-                      {user.profile?.level > 1 && (
-                        <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs">
-                          {user.profile.level}
-                        </Badge>
-                      )}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
-                    <div className="flex items-center justify-start gap-2 p-2">
-                      <div className="flex flex-col space-y-1 leading-none">
-                        <p className="font-medium">{user.profile?.display_name}</p>
-                        <p className="text-xs text-muted-foreground">@{user.profile?.username}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>Level {user.profile?.level || 1}</span>
-                          <span>•</span>
-                          <span>{user.profile?.xp || 0} XP</span>
+                  <DropdownMenuContent className="w-80" align="end" forceMount>
+                    <div className="flex flex-col space-y-2 p-4">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={profile?.avatar_url || ""} alt={profile?.display_name || ""} />
+                          <AvatarFallback>{profile?.display_name?.[0] || "U"}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{profile?.display_name}</p>
+                          <p className="text-xs text-muted-foreground">@{profile?.username}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Badge variant="secondary" className="text-xs">
+                              <Star className="w-3 h-3 mr-1" />
+                              Level {profile?.level || 1}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              <Trophy className="w-3 h-3 mr-1" />
+                              {profile?.xp || 0} XP
+                            </Badge>
+                          </div>
                         </div>
                       </div>
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href={`/profile/${user.profile?.username}`} className="flex items-center">
-                        <User className="mr-2 h-4 w-4" />
-                        <span>Profile</span>
+                      <Link href={`/profile/${profile?.username}`} className="w-full">
+                        View Profile
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/customize" className="flex items-center">
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Customize</span>
+                      <Link href="/settings" className="w-full">
+                        <Settings className="w-4 h-4 mr-2" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/customize" className="w-full">
+                        Customize Profile
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => signOut()} className="text-red-600">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Sign out</span>
+                    <DropdownMenuItem onClick={() => signOut()}>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" onClick={() => setShowAuth(true)}>
+              </>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Link href="/auth">
+                  <Button variant="outline" size="sm">
                     Sign In
                   </Button>
-                  <Button onClick={() => setShowAuth(true)}>Join The You Place</Button>
-                </div>
-              )}
-            </div>
+                </Link>
+                <Link href="/auth">
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  >
+                    Join The You Place
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
-      </nav>
-
-      {/* Auth Modal */}
-      {showAuth && !user && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-lg p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">Welcome to The You Place</h2>
-              <Button variant="ghost" size="sm" onClick={() => setShowAuth(false)}>
-                ✕
-              </Button>
-            </div>
-            <AuthForm onSuccess={() => setShowAuth(false)} />
-          </div>
-        </div>
-      )}
-    </>
+      </div>
+    </nav>
   )
 }

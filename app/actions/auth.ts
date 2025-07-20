@@ -44,20 +44,6 @@ export async function signUpWithEmail(email: string, password: string, username:
     throw new Error(error.message)
   }
 
-  // If user is created immediately (no email confirmation required)
-  if (data.user && !data.user.email_confirmed_at) {
-    // Create profile immediately for better UX
-    await supabase.from("profiles").insert({
-      id: data.user.id,
-      username: username,
-      display_name: displayName || username,
-      avatar_url: "",
-      bio: "",
-      xp: 0,
-      level: 1,
-    })
-  }
-
   redirect("/")
 }
 

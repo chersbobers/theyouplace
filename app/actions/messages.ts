@@ -8,13 +8,16 @@ export async function sendMessage(recipientUsername: string, content: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { error: "Not authenticated" }
+
+  if (!user) {
+    throw new Error("Not authenticated")
+  }
 
   // Get recipient user ID
   const { data: recipient } = await supabase.from("profiles").select("id").eq("username", recipientUsername).single()
 
   if (!recipient) {
-    return { error: "User not found" }
+    throw new Error("User not found")
   }
 
   const { error } = await supabase.from("messages").insert({
@@ -24,9 +27,8 @@ export async function sendMessage(recipientUsername: string, content: string) {
   })
 
   if (error) {
-    return { error: error.message }
+    throw new Error(error.message)
   }
 
   revalidatePath("/messages")
-  return { success: true }
 }

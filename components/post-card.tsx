@@ -5,160 +5,130 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Heart, MessageCircle, Share, Play } from "lucide-react"
-import { likePost, addComment } from "@/app/actions/posts"
-import { formatDistanceToNow } from "date-fns"
+import { Heart, MessageCircle, Share, Star } from "lucide-react"
+import { likePost } from "@/app/actions/posts"
+import { toast } from "sonner"
 import Link from "next/link"
 import type { Post } from "@/lib/types"
 
 interface PostCardProps {
   post: Post
-  currentUserId?: string
+  currentUserId: string | null
 }
 
 export function PostCard({ post, currentUserId }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(post.likes_count || 0)
-  const [showComments, setShowComments] = useState(false)
-  const [newComment, setNewComment] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const handleLike = async () => {
-    if (!currentUserId) return
+    if (!currentUserId) {
+      toast.error("Please sign in to like posts")
+      return
+    }
 
+    setLoading(true)
     try {
       await likePost(post.id)
       setIsLiked(!isLiked)
       setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1))
-    } catch (error) {
-      console.error("Error liking post:", error)
-    }
-  }
-
-  const handleComment = async () => {
-    if (!currentUserId || !newComment.trim()) return
-
-    setIsSubmitting(true)
-    try {
-      await addComment(post.id, newComment.trim())
-      setNewComment("")
-      // Refresh comments would go here
-    } catch (error) {
-      console.error("Error adding comment:", error)
+    } catch (error: any) {
+      toast.error(error.message || "Failed to like post")
     } finally {
-      setIsSubmitting(false)
+      setLoading(false)
     }
   }
 
-  const getYouTubeVideoId = (url: string) => {
+  const extractYouTubeId = (url: string) => {
     const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/
     const match = url.match(regex)
     return match ? match[1] : null
   }
 
-  const videoId = post.youtube_url ? getYouTubeVideoId(post.youtube_url) : null
+  const youtubeId = post.youtube_url ? extractYouTubeId(post.youtube_url) : null
 
   return (
-    <Card className="w-full">
+    <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex items-center gap-3">
-          <Avatar className="w-10 h-10">
-            <AvatarImage src={post.profiles?.avatar_url || "/placeholder.svg"} />
-            <AvatarFallback>{post.profiles?.display_name?.[0] || "U"}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <Link href={`/profile/${post.profiles?.username}`} className="font-semibold hover:underline">
-                {post.profiles?.display_name || "Anonymous"}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Link href={`/profile/${post.profiles?.username}`}>
+              <Avatar className="h-10 w-10 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all">
+                <AvatarImage src={post.profiles?.avatar_url || ""} alt={post.profiles?.display_name || ""} />
+                <AvatarFallback>{post.profiles?.display_name?.[0] || "U"}</AvatarFallback>
+              </Avatar>
+            </Link>
+            <div>
+              <Link href={`/profile/${post.profiles?.username}`} className="hover:underline">
+                <p className="font-semibold">{post.profiles?.display_name}</p>
               </Link>
-              <Badge variant="secondary" className="text-xs">
-                @{post.profiles?.username || "user"}
-              </Badge>
+              <div className="flex items-center space-x-2">
+                <p className="text-sm text-gray-500">@{post.profiles?.username}</p>
+                {post.profiles?.username === "chersbobers" && (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs bg-gradient-to-r from-yellow-400 to-orange-500 text-white"
+                  >
+                    ⭐ Creator
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-xs">
+                  <Star className="w-3 h-3 mr-1" />
+                  Level {(post.profiles as any)?.level || 1}
+                </Badge>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-            </p>
           </div>
+          <div className="text-sm text-gray-500">{new Date(post.created_at).toLocaleDateString()}</div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Post Content */}
-        {post.content && <p className="text-sm leading-relaxed">{post.content}</p>}
+        {post.content && <p className="text-gray-800 leading-relaxed">{post.content}</p>}
 
-        {/* YouTube Video */}
-        {videoId && (
-          <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+        {youtubeId && (
+          <div className="rounded-lg overflow-hidden">
             <iframe
-              src={`https://www.youtube.com/embed/${videoId}`}
-              title="YouTube video"
-              className="w-full h-full"
+              width="100%"
+              height="315"
+              src={`https://www.youtube.com/embed/${youtubeId}`}
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-              loading="lazy"
+              className="w-full"
             />
           </div>
         )}
 
-        {/* Post Actions */}
-        <div className="flex items-center gap-4 pt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLike}
-            className={`gap-2 ${isLiked ? "text-red-500" : ""}`}
-            disabled={!currentUserId}
-          >
-            <Heart className={`w-4 h-4 ${isLiked ? "fill-current" : ""}`} />
-            {likesCount}
-          </Button>
-
-          <Button variant="ghost" size="sm" onClick={() => setShowComments(!showComments)} className="gap-2">
-            <MessageCircle className="w-4 h-4" />
-            {post.comments_count || 0}
-          </Button>
-
-          <Button variant="ghost" size="sm" className="gap-2">
-            <Share className="w-4 h-4" />
-            Share
-          </Button>
-
-          {post.youtube_url && (
-            <Button variant="ghost" size="sm" asChild className="gap-2 ml-auto">
-              <a href={post.youtube_url} target="_blank" rel="noopener noreferrer">
-                <Play className="w-4 h-4" />
-                Watch on YouTube
-              </a>
+        <div className="flex items-center justify-between pt-2 border-t">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLike}
+              disabled={loading}
+              className={`flex items-center space-x-1 ${isLiked ? "text-red-500" : "text-gray-500"} hover:text-red-500`}
+            >
+              <Heart className={`w-4 h-4 ${isLiked ? "fill-current" : ""}`} />
+              <span>{likesCount}</span>
             </Button>
-          )}
-        </div>
 
-        {/* Comments Section */}
-        {showComments && (
-          <div className="space-y-4 pt-4 border-t">
-            {/* Add Comment */}
-            {currentUserId && (
-              <div className="space-y-2">
-                <Textarea
-                  placeholder="Write a comment..."
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  className="min-h-[80px]"
-                />
-                <div className="flex justify-end">
-                  <Button size="sm" onClick={handleComment} disabled={!newComment.trim() || isSubmitting}>
-                    {isSubmitting ? "Posting..." : "Post Comment"}
-                  </Button>
-                </div>
-              </div>
-            )}
+            <Button variant="ghost" size="sm" className="flex items-center space-x-1 text-gray-500 hover:text-blue-500">
+              <MessageCircle className="w-4 h-4" />
+              <span>{post.comments_count || 0}</span>
+            </Button>
 
-            {/* Comments List */}
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">Comments will appear here</p>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center space-x-1 text-gray-500 hover:text-green-500"
+            >
+              <Share className="w-4 h-4" />
+              <span>Share</span>
+            </Button>
           </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   )

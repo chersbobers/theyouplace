@@ -1,52 +1,41 @@
-"use client"
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { AlertTriangle, ArrowLeft } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertTriangle } from "lucide-react"
 import Link from "next/link"
 
 export default function AuthCodeErrorPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-yellow-500" />
-          <CardTitle>Authentication Error</CardTitle>
-          <CardDescription>There was a problem signing you in to The You Place</CardDescription>
+    <div className="max-w-md mx-auto mt-8">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-500" />
+            Authentication Error
+          </CardTitle>
+          <CardDescription>There was a problem signing you in</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="text-sm text-muted-foreground space-y-2">
-            <p>
-              <strong>Possible causes:</strong>
-            </p>
-            <ul className="list-disc list-inside space-y-1 ml-4">
-              <li>Google OAuth is not enabled in Supabase</li>
-              <li>Invalid redirect URL configuration</li>
-              <li>Network connection issues</li>
-              <li>Expired or invalid authentication code</li>
-            </ul>
-          </div>
+          <Alert>
+            <AlertDescription>
+              The authentication process was interrupted. This could be due to:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Google OAuth not being properly configured</li>
+                <li>Network connectivity issues</li>
+                <li>Browser blocking the authentication popup</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
 
-          <div className="bg-muted p-4 rounded-lg text-sm">
-            <p>
-              <strong>For administrators:</strong>
-            </p>
-            <p>
-              Make sure Google OAuth is properly configured in your Supabase project settings with the correct redirect
-              URLs.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2">
+          <div className="space-y-2">
+            <Link href="/auth">
+              <Button className="w-full">Try Again</Button>
+            </Link>
             <Link href="/">
-              <Button className="w-full">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
+              <Button variant="outline" className="w-full bg-transparent">
+                Return Home
               </Button>
             </Link>
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              Try Again
-            </Button>
           </div>
         </CardContent>
       </Card>
