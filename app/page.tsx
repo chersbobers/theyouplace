@@ -1,13 +1,10 @@
+import { getUser } from "@/lib/supabase-server"
 import { createClient } from "@/lib/supabase-server"
 import { PostCard } from "@/components/post-card"
 import { CreatePost } from "@/components/create-post"
-import { AuthForm } from "@/components/auth-form"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MessageSquare, Users, Trophy, Star } from "lucide-react"
-import Link from "next/link"
+import { TrendingUp, Users, MessageCircle, Play } from "lucide-react"
 import type { Post } from "@/lib/types"
 
 async function getPosts(): Promise<Post[]> {
@@ -21,7 +18,9 @@ async function getPosts(): Promise<Post[]> {
         id,
         username,
         display_name,
-        avatar_url
+        avatar_url,
+        level,
+        xp
       )
     `)
     .order("created_at", { ascending: false })
@@ -30,202 +29,113 @@ async function getPosts(): Promise<Post[]> {
   return posts || []
 }
 
-async function getTopUsers() {
+async function getStats() {
   const supabase = await createClient()
 
-  const { data: users } = await supabase.from("profiles").select("*").order("xp", { ascending: false }).limit(5)
+  const [{ count: totalUsers }, { count: totalPosts }, { count: totalComments }] = await Promise.all([
+    supabase.from("profiles").select("*", { count: "exact", head: true }),
+    supabase.from("posts").select("*", { count: "exact", head: true }),
+    supabase.from("comments").select("*", { count: "exact", head: true }),
+  ])
 
-  return users || []
+  return {
+    totalUsers: totalUsers || 0,
+    totalPosts: totalPosts || 0,
+    totalComments: totalComments || 0,
+  }
 }
 
 export default async function HomePage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
+  const user = await getUser()
   const posts = await getPosts()
-  const topUsers = await getTopUsers()
+  const stats = await getStats()
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-primary">TheYouPlace</h1>
-              <Badge variant="secondary">Beta</Badge>
-            </div>
-
-            <nav className="flex items-center gap-4">
-              <Link href="/users">
-                <Button variant="ghost" size="sm">
-                  <Users className="w-4 h-4 mr-2" />
-                  Community
-                </Button>
-              </Link>
-
-              {user && (
-                <>
-                  <Link href="/messages">
-                    <Button variant="ghost" size="sm">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Messages
-                    </Button>
-                  </Link>
-                  <Link href={`/profile/${user.user_metadata?.username || user.email?.split("@")[0]}`}>
-                    <Button variant="ghost" size="sm">
-                      <Avatar className="w-6 h-6 mr-2">
-                        <AvatarImage src={user.user_metadata?.avatar_url || "/placeholder.svg"} />
-                        <AvatarFallback>{user.user_metadata?.full_name?.[0] || "U"}</AvatarFallback>
-                      </Avatar>
-                      Profile
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </nav>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Hero Section */}
+      <div className="text-center py-12 px-4">
+        <div className="flex items-center justify-center mb-4">
+          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 rounded-2xl mb-4">
+            <Play className="w-8 h-8 text-white" />
           </div>
         </div>
-      </header>
+        <h1 className="text-4xl md:text-6xl font-bold mb-4">
+          Welcome to{" "}
+          <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 bg-clip-text text-transparent">
+            The You Place
+          </span>
+        </h1>
+        <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+          Where old Twitter, Instagram, and YouTube had a baby. Share your videos, thoughts, and connect with your
+          community.
+        </p>
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-3 space-y-6">
-            {/* Welcome Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-yellow-500" />
-                  Welcome to TheYouPlace
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">
-                  Share your favorite YouTube videos, discover new content, and connect with the community!
-                </p>
-                {!user && (
-                  <div className="bg-muted p-4 rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-3">Sign in to post, comment, and earn XP points!</p>
-                    <AuthForm />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Create Post */}
-            {user && <CreatePost />}
-
-            {/* Posts Feed */}
-            <div className="space-y-6">
-              {posts.length > 0 ? (
-                posts.map((post) => <PostCard key={post.id} post={post} currentUserId={user?.id} />)
-              ) : (
-                <Card>
-                  <CardContent className="text-center py-12">
-                    <p className="text-muted-foreground">No posts yet. Be the first to share something!</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* User Stats */}
-            {user && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Your Stats</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Level</span>
-                      <Badge variant="secondary">1</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">XP</span>
-                      <span className="text-sm font-medium">0</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Posts</span>
-                      <span className="text-sm font-medium">0</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Top Users */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-yellow-500" />
-                  Top Contributors
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {topUsers.map((topUser, index) => (
-                    <div key={topUser.id} className="flex items-center gap-3">
-                      <div className="text-sm font-medium text-muted-foreground w-4">#{index + 1}</div>
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src={topUser.avatar_url || "/placeholder.svg"} />
-                        <AvatarFallback>{topUser.display_name?.[0] || "U"}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{topUser.display_name || "Anonymous"}</p>
-                        <p className="text-xs text-muted-foreground">{topUser.xp || 0} XP</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        L{topUser.level || 1}
-                      </Badge>
-                    </div>
-                  ))}
-                  {topUsers.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">No users yet. Be the first!</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Link href="/users" className="block">
-                    <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                      <Users className="w-4 h-4 mr-2" />
-                      Browse Users
-                    </Button>
-                  </Link>
-                  {user && (
-                    <>
-                      <Link href="/messages" className="block">
-                        <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                          <MessageSquare className="w-4 h-4 mr-2" />
-                          Messages
-                        </Button>
-                      </Link>
-                      <Link href="/customize" className="block">
-                        <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                          <Star className="w-4 h-4 mr-2" />
-                          Customize Profile
-                        </Button>
-                      </Link>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-md mx-auto">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <Users className="w-6 h-6 mx-auto mb-2 text-blue-500" />
+              <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Members</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <Play className="w-6 h-6 mx-auto mb-2 text-purple-500" />
+              <div className="text-2xl font-bold">{stats.totalPosts.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Posts</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <MessageCircle className="w-6 h-6 mx-auto mb-2 text-pink-500" />
+              <div className="text-2xl font-bold">{stats.totalComments.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Comments</div>
+            </CardContent>
+          </Card>
         </div>
+      </div>
+
+      {/* Create Post */}
+      {user && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5" />
+              What's happening?
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CreatePost user={user} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Posts Feed */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">Latest Posts</h2>
+          <Badge variant="secondary" className="flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" />
+            Trending
+          </Badge>
+        </div>
+
+        {posts.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Play className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
+              <p className="text-muted-foreground">
+                {user
+                  ? "Be the first to share something!"
+                  : "Sign in to start sharing and see posts from the community."}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          posts.map((post) => <PostCard key={post.id} post={post} currentUserId={user?.id} />)
+        )}
       </div>
     </div>
   )
