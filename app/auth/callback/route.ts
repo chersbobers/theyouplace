@@ -10,17 +10,17 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data.user) {
-      // Create profile if doesn't exist
-      const { data: existingProfile } = await supabase.from("profiles").select("id").eq("id", data.user.id).single()
+      // Create or update profile
+      const { error: profileError } = await supabase.from("profiles").upsert({
+        id: data.user.id,
+        username: data.user.email?.split("@")[0] || "user",
+        display_name: data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "User",
+        avatar_url: data.user.user_metadata?.avatar_url || "",
+        email: data.user.email,
+      })
 
-      if (!existingProfile) {
-        const username = data.user.email?.split("@")[0] || `user_${data.user.id.slice(0, 8)}`
-        await supabase.from("profiles").insert({
-          id: data.user.id,
-          username,
-          display_name: data.user.user_metadata?.full_name || username,
-          avatar_url: data.user.user_metadata?.avatar_url,
-        })
+      if (profileError) {
+        console.error("Error creating profile:", profileError)
       }
     }
   }

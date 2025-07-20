@@ -14,8 +14,8 @@ export async function createComment(formData: FormData) {
   const content = formData.get("content") as string
 
   const { error } = await supabase.from("comments").insert({
-    user_id: user.id,
     post_id: postId,
+    user_id: user.id,
     content,
   })
 

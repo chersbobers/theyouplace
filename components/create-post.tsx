@@ -3,47 +3,38 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Video, Type, Send } from "lucide-react"
 import { createPost } from "@/app/actions/posts"
-import { Youtube, Type } from "lucide-react"
 
-interface CreatePostProps {
-  user: any
-}
-
-export function CreatePost({ user }: CreatePostProps) {
+export function CreatePost() {
   const [content, setContent] = useState("")
-  const [youtubeUrl, setYoutubeUrl] = useState("")
+  const [videoUrl, setVideoUrl] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState("text")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!content.trim() && !youtubeUrl.trim()) {
-      alert("Please add some content or a YouTube URL!")
-      return
-    }
+    if (!content.trim() && !videoUrl.trim()) return
 
     setIsSubmitting(true)
     try {
-      await createPost({
-        content: content.trim(),
-        youtube_url: youtubeUrl.trim() || null,
-        author_id: user.id,
-      })
+      const formData = new FormData()
+      formData.append("type", activeTab)
+      formData.append("content", content)
+      if (videoUrl) formData.append("videoUrl", videoUrl)
 
+      await createPost(formData)
       setContent("")
-      setYoutubeUrl("")
-
-      // Refresh the page to show new post
-      window.location.reload()
+      setVideoUrl("")
+      setActiveTab("text")
     } catch (error) {
       console.error("Error creating post:", error)
-      alert("Failed to create post. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -52,40 +43,66 @@ export function CreatePost({ user }: CreatePostProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Type className="h-5 w-5" />
-          <span>Share Something Awesome</span>
+        <CardTitle className="flex items-center gap-2">
+          <Send className="w-5 h-5" />
+          Create Post
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="content">What's on your mind?</Label>
-            <Textarea
-              id="content"
-              placeholder="Share your thoughts, ask a question, or start a discussion..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="min-h-[100px] resize-none"
-            />
-          </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="text" className="flex items-center gap-2">
+                <Type className="w-4 h-4" />
+                Text Post
+              </TabsTrigger>
+              <TabsTrigger value="video" className="flex items-center gap-2">
+                <Video className="w-4 h-4" />
+                Video Post
+              </TabsTrigger>
+            </TabsList>
 
-          <div>
-            <Label htmlFor="youtube-url" className="flex items-center space-x-2">
-              <Youtube className="h-4 w-4 text-red-600" />
-              <span>YouTube Video (optional)</span>
-            </Label>
-            <Input
-              id="youtube-url"
-              type="url"
-              placeholder="https://www.youtube.com/watch?v=..."
-              value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)}
-            />
-          </div>
+            <TabsContent value="text" className="space-y-4">
+              <div>
+                <Label htmlFor="content">What's on your mind?</Label>
+                <Textarea
+                  id="content"
+                  placeholder="Share your thoughts..."
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                />
+              </div>
+            </TabsContent>
 
-          <Button type="submit" disabled={isSubmitting || (!content.trim() && !youtubeUrl.trim())} className="w-full">
-            {isSubmitting ? "Posting..." : "Share Post"}
+            <TabsContent value="video" className="space-y-4">
+              <div>
+                <Label htmlFor="video-content">Caption</Label>
+                <Textarea
+                  id="video-content"
+                  placeholder="Tell us about this video..."
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+              <div>
+                <Label htmlFor="video-url">YouTube URL</Label>
+                <Input
+                  id="video-url"
+                  type="url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <Button type="submit" disabled={(!content.trim() && !videoUrl.trim()) || isSubmitting} className="w-full">
+            {isSubmitting ? "Posting..." : "Post"}
           </Button>
         </form>
       </CardContent>
